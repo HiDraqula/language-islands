@@ -15,7 +15,11 @@ function playBlob(blob: Blob, voiceName: string): Promise<SpeechResult> {
 
 export async function playText(text: string, lang: "de-DE" | "en-US"): Promise<SpeechResult> {
   const engine = (localStorage.getItem("tts-engine") || "system") as AudioEngine;
-  if (engine === "system") return speakText(text, lang);
+  if (engine === "system") {
+    const result = await speakText(text, lang);
+    if (!result.ok) window.dispatchEvent(new CustomEvent("language-islands:audio-help", { detail: result.message }));
+    return result;
+  }
 
   const isAzure = engine === "azure";
   const apiKey = sessionStorage.getItem(isAzure ? "azure-speech-api-key" : "elevenlabs-api-key");
