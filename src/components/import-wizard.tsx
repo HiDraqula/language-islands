@@ -1,7 +1,7 @@
 "use client";
 
 import { ChangeEvent, useRef, useState } from "react";
-import { FileSpreadsheet, Upload, X } from "lucide-react";
+import { Eye, EyeOff, FileSpreadsheet, Upload, X } from "lucide-react";
 import * as XLSX from "xlsx";
 import { useToast } from "./ui-feedback";
 
@@ -92,15 +92,15 @@ export function ImportWizard({ open, onClose, onImport }: { open: boolean; onClo
           <div className="mapping-layout">
             <aside className="sheet-list" aria-label="Workbook sheets">
               <small>{fileName}</small>
-              {sheets.map((sheet) => <button className={activeSheet === sheet.name ? "active" : ""} type="button" key={sheet.name} onClick={() => setActiveSheet(sheet.name)}>{sheet.name}<span>{sheet.rows.length} rows</span></button>)}
+              {sheets.map((sheet) => <div className={`sheet-item ${activeSheet === sheet.name ? "active" : ""} ${!mappings[sheet.name]?.include ? "ignored" : ""}`} key={sheet.name}><button type="button" onClick={() => setActiveSheet(sheet.name)}><strong>{sheet.name}</strong><span>{mappings[sheet.name]?.include ? `${sheet.rows.length} rows` : "Ignored"}</span></button><button className="sheet-visibility" type="button" title={mappings[sheet.name]?.include ? "Ignore this sheet" : "Include this sheet"} aria-label={mappings[sheet.name]?.include ? `Ignore ${sheet.name}` : `Include ${sheet.name}`} onClick={() => updateMapping(sheet.name, { include: !mappings[sheet.name]?.include })}>{mappings[sheet.name]?.include ? <Eye size={15} /> : <EyeOff size={15} />}</button></div>)}
             </aside>
             {current && mapping && <div className="mapping-fields">
-              <label className="include-sheet"><input type="checkbox" checked={mapping.include} onChange={(event) => updateMapping(current.name, { include: event.target.checked })} /> Import this sheet</label>
+              <label className="include-sheet"><input type="checkbox" checked={mapping.include} onChange={(event) => updateMapping(current.name, { include: event.target.checked })} /> Import this sheet <small>Turn this off to ignore the tab completely.</small></label>
               <p>Map the columns for <strong>{current.name}</strong>. The source phrase is required; the rest are optional.</p>
               <label>English / source phrase <em>Required</em><select value={mapping.source} onChange={(event) => updateMapping(current.name, { source: event.target.value })}><option value="">Select a column…</option>{current.headers.map((header) => <option key={header}>{header}</option>)}</select></label>
               <label>Existing German / translation <span>Optional</span><select value={mapping.translation} onChange={(event) => updateMapping(current.name, { translation: event.target.value })}><option value="">Do not import</option>{current.headers.map((header) => <option key={header}>{header}</option>)}</select></label>
               <label>Island name column <span>Optional — sheet name used by default</span><select value={mapping.islandTitle} onChange={(event) => updateMapping(current.name, { islandTitle: event.target.value })}><option value="">Use “{current.name}”</option>{current.headers.map((header) => <option key={header}>{header}</option>)}</select></label>
-              <div className="mapping-preview"><strong>Preview</strong><span>{current.rows.slice(0, 2).map((row) => String(row[mapping.source] || "—")).join(" · ")}</span></div>
+              <div className="mapping-preview"><div><strong>Island preview</strong><span>First {Math.min(3, current.rows.length)} entries after mapping</span></div><div className="preview-table"><div className="preview-head"><span>English / source</span><span>German / translation</span></div>{current.rows.slice(0, 3).map((row, index) => <div className="preview-row" key={index}><span>{mapping.source ? String(row[mapping.source] || "—") : "Choose a source column"}</span><span>{mapping.translation ? String(row[mapping.translation] || "—") : "Will be translated later"}</span></div>)}</div><small>Island name: <strong>{mapping.islandTitle ? String(current.rows.find((row) => row[mapping.islandTitle])?.[mapping.islandTitle] || current.name) : current.name}</strong></small></div>
             </div>}
           </div>
         )}

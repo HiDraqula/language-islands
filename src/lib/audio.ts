@@ -1,4 +1,5 @@
 import { speakText, SpeechResult } from "./speech";
+import { recordUsage } from "./usage";
 
 export type AudioEngine = "system" | "elevenlabs" | "azure";
 
@@ -30,6 +31,7 @@ export async function playText(text: string, lang: "de-DE" | "en-US"): Promise<S
   const region = isAzure ? localStorage.getItem("azure-speech-region") || "" : undefined;
   if (isAzure && !region) return { ok: false, message: "Add your Azure Speech region in Settings first." };
   try {
+    recordUsage("tts", text.length);
     const response = await fetch("/api/tts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

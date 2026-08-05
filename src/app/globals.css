@@ -292,3 +292,50 @@ button { cursor: pointer; }
   .voice-picker-grid { grid-template-columns: 1fr; }
   .voice-preview { margin-top: -10px; }
 }
+
+/* Island density, playback, import preview and usage additions */
+.title-with-action { display: flex; align-items: center; gap: 10px; }
+.title-with-action .display { margin: 0; }
+.density-control { display: flex; padding: 3px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
+.density-control button { width: 34px; height: 34px; display: grid; place-items: center; border: 0; border-radius: 9px; color: var(--muted); background: transparent; }
+.density-control button:hover, .density-control button.active { color: var(--green); background: var(--green-soft); }
+.density-compact .phrase-header > div, .density-compact .phrase-row > div { padding-top: 7px; padding-bottom: 7px; }
+.density-compact .phrase-row textarea { min-height: 31px; padding-top: 7px; padding-bottom: 7px; line-height: 1.25; }
+.density-comfortable .phrase-header > div, .density-comfortable .phrase-row > div { padding-top: 12px; padding-bottom: 12px; }
+.density-comfortable .phrase-row textarea { min-height: 48px; }
+.density-relaxed .phrase-header > div, .density-relaxed .phrase-row > div { padding-top: 18px; padding-bottom: 18px; }
+.playback-dock { position: fixed; right: 22px; bottom: 22px; z-index: 70; display: flex; align-items: center; gap: 8px; width: min(480px, calc(100vw - 44px)); padding: 12px; border: 1px solid var(--line); border-radius: 18px; color: var(--ink); background: var(--card); box-shadow: 0 18px 55px rgba(24,38,33,.2); }
+.playback-dock > button { flex: 0 0 auto; width: 34px; height: 34px; display: grid; place-items: center; border: 0; border-radius: 10px; color: var(--ink); background: var(--paper); }
+.playback-dock .player-main { color: white; background: var(--green); }
+.player-progress { flex: 1; min-width: 0; display: grid; gap: 7px; }
+.player-progress > div { display: flex; justify-content: space-between; gap: 12px; font-size: 11px; }
+.player-progress span { color: var(--muted); }
+.player-progress input { width: 100%; accent-color: var(--green); }
+.mapping-preview > div:first-child { display: flex; justify-content: space-between; gap: 12px; }
+.preview-table { overflow: hidden; margin: 8px 0; border: 1px solid var(--line); border-radius: 10px; background: var(--card); }
+.preview-head, .preview-row { display: grid; grid-template-columns: 1fr 1fr; }
+.preview-head { color: var(--ink); background: var(--green-soft); font-weight: 750; }
+.preview-head span, .preview-row span { min-width: 0; padding: 8px 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.preview-head span + span, .preview-row span + span { border-left: 1px solid var(--line); }
+.preview-row + .preview-row { border-top: 1px solid var(--line); }
+.sheet-item { display: grid; grid-template-columns: 1fr 34px; align-items: center; border-radius: 10px; }
+.sheet-item > button:first-child { min-width: 0; }
+.sheet-item > button:first-child strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sheet-item.active { color: var(--green); background: var(--card); box-shadow: 0 4px 14px rgba(54,66,59,.07); }
+.sheet-item.ignored { opacity: .58; }
+.sheet-item .sheet-visibility { min-width: 0; width: 30px; height: 30px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 8px; color: var(--muted); background: transparent; }
+.include-sheet small { color: var(--muted); font-weight: 400; }
+.usage-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 18px; }
+.usage-grid > div { display: grid; gap: 4px; padding: 15px; border: 1px solid var(--line); border-radius: 14px; background: var(--paper); }
+.usage-grid strong { color: var(--green); font-size: 21px; }
+.usage-grid span { color: var(--muted); font-size: 11px; line-height: 1.35; }
+
+@media (max-width: 820px) {
+  .density-control { align-self: flex-end; margin-top: -52px; }
+}
+
+@media (max-width: 560px) {
+  .playback-dock { left: 12px; right: 12px; bottom: 12px; width: auto; }
+  .usage-grid { grid-template-columns: 1fr 1fr; }
+  .density-control { align-self: stretch; justify-content: center; margin-top: 0; }
+}
