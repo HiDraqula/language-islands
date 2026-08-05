@@ -7,6 +7,7 @@ import { Header } from "@/components/header";
 import { ImportedIsland, ImportWizard } from "@/components/import-wizard";
 import { useToast } from "@/components/ui-feedback";
 import * as XLSX from "xlsx";
+import { saveIslands } from "@/lib/local-data";
 
 type Island = { id: string; title: string; description: string; count: number; icon: string; tint: string; accent: string };
 
@@ -67,6 +68,12 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    const refresh = () => { try { setIslands(JSON.parse(localStorage.getItem("language-islands") || "[]")); } catch { /* keep current */ } };
+    window.addEventListener("language-islands:cloud-applied", refresh);
+    return () => window.removeEventListener("language-islands:cloud-applied", refresh);
+  }, []);
+
+  useEffect(() => {
     const openImport = () => setImportOpen(true);
     window.addEventListener("open-island-import", openImport);
     return () => window.removeEventListener("open-island-import", openImport);
@@ -101,13 +108,13 @@ export default function Home() {
       ...color,
     }];
     setIslands(next);
-    localStorage.setItem("language-islands", JSON.stringify(next));
+    saveIslands(next);
     setTitle(""); setDescription(""); setSelectedIcon("sparkles"); setIconSearch(""); setOpen(false);
   }
 
   function addImported(imported: ImportedIsland[]) {
     const next = [...islands, ...imported];
-    setIslands(next); localStorage.setItem("language-islands", JSON.stringify(next));
+    setIslands(next); saveIslands(next);
   }
 
   function exportWorkbook() {

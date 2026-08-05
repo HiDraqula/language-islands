@@ -7,6 +7,7 @@ import { Header } from "@/components/header";
 import { useToast } from "@/components/ui-feedback";
 import { playText, AudioEngine } from "@/lib/audio";
 import { readUsage, recordUsage, resetUsage, UsageStats } from "@/lib/usage";
+import { removeIslandData, saveIslands } from "@/lib/local-data";
 
 type Island = { id: string; title: string; description?: string };
 type ProviderGuide = "elevenlabs" | "azure";
@@ -144,7 +145,7 @@ export default function SettingsPage() {
   function removeDeepL() { sessionStorage.removeItem("deepl-api-key"); setDeeplKey(""); setDeeplStatus("idle"); toast("DeepL key removed.", "info"); }
   function removeEleven() { sessionStorage.removeItem("elevenlabs-api-key"); setElevenKey(""); setElevenStatus("idle"); if (engine === "elevenlabs") chooseEngine("system"); toast("ElevenLabs key removed.", "info"); }
   function removeAzure() { sessionStorage.removeItem("azure-speech-api-key"); setAzureKey(""); setAzureStatus("idle"); if (engine === "azure") chooseEngine("system"); toast("Azure Speech key removed.", "info"); }
-  function deleteIsland(island: Island) { const next = islands.filter((item) => item.id !== island.id); localStorage.setItem("language-islands", JSON.stringify(next)); localStorage.removeItem(`phrases:${island.id}`); setIslands(next); setDeleteTarget(null); toast(`Deleted ${island.title}.`, "success"); }
+  function deleteIsland(island: Island) { const next = islands.filter((item) => item.id !== island.id); saveIslands(next); removeIslandData(island.id); setIslands(next); setDeleteTarget(null); toast(`Deleted ${island.title}.`, "success"); }
 
   return <main className="shell"><Header /><div className="page settings-page">
     <div className="workspace-head"><Link href="/" className="back" aria-label="Back"><ArrowLeft size={20} /></Link><div><h1 className="display">Settings</h1><p>Translation, pronunciation and data preferences</p></div></div>

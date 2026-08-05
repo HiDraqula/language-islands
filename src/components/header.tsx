@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { Languages, Settings, Upload } from "lucide-react";
+import { Cloud, Languages, LoaderCircle, LogOut, Settings, Upload } from "lucide-react";
 import { ThemeToggle } from "./theme-toggle";
+import { useAuth } from "./auth-provider";
 
 export function Header() {
+  const { user, loading, syncing, signIn, signOutUser } = useAuth();
   return (
     <header className="topbar">
       <Link href="/" className="brand" style={{ textDecoration: "none", color: "inherit" }}>
@@ -15,7 +17,8 @@ export function Header() {
         <button className="secondary-button" type="button" onClick={() => window.dispatchEvent(new Event("open-island-import"))}><Upload size={16} /> Import</button>
         <ThemeToggle />
         <Link href="/settings" className="icon-button" aria-label="Settings"><Settings size={20} /></Link>
-        <button className="primary-button" type="button">Sign in</button>
+        {syncing && <span className="sync-status"><LoaderCircle className="spin" size={15} /> Syncing</span>}
+        {user ? <button className="secondary-button" type="button" onClick={signOutUser} title={user.email || "Signed in"}><Cloud size={16} /> <span className="account-label">{user.displayName?.split(" ")[0] || "Account"}</span><LogOut size={14} /></button> : <button className="primary-button" type="button" onClick={signIn} disabled={loading}>{loading ? "Loading…" : "Sign in with Google"}</button>}
       </nav>
     </header>
   );

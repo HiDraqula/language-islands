@@ -7,6 +7,7 @@ import { Header } from "./header";
 import { useToast } from "./ui-feedback";
 import { playText } from "@/lib/audio";
 import { recordUsage } from "@/lib/usage";
+import { saveIslands, savePhrases } from "@/lib/local-data";
 
 type Phrase = { id: string; source: string; translation: string; status?: "idle" | "translating" | "error" };
 type ListenMode = "german" | "english" | "both";
@@ -44,8 +45,8 @@ export function IslandWorkspace({ islandId, islandTitle, islandDescription }: { 
     if (savedDensity) queueMicrotask(() => setDensity(savedDensity));
   }, [islandId]);
 
-  function persist(next: Phrase[]) { setPhrases(next); localStorage.setItem(`phrases:${islandId}`, JSON.stringify(next)); }
-  function persistUpdate(updateRows: (rows: Phrase[]) => Phrase[]) { setPhrases((rows) => { const next = updateRows(rows); localStorage.setItem(`phrases:${islandId}`, JSON.stringify(next)); return next; }); }
+  function persist(next: Phrase[]) { setPhrases(next); savePhrases(islandId, next); }
+  function persistUpdate(updateRows: (rows: Phrase[]) => Phrase[]) { setPhrases((rows) => { const next = updateRows(rows); savePhrases(islandId, next); return next; }); }
   function update(index: number, source: string) { persist(phrases.map((row, i) => i === index ? { ...row, source, status: "idle" } : row)); }
   const playable = phrases.filter((phrase) => phrase.source.trim() || phrase.translation.trim());
 
@@ -100,7 +101,7 @@ export function IslandWorkspace({ islandId, islandTitle, islandDescription }: { 
     if (!cleanTitle) return toast("Island name cannot be empty.", "error");
     try {
       const islands = JSON.parse(localStorage.getItem("language-islands") || "[]");
-      localStorage.setItem("language-islands", JSON.stringify(islands.map((island: { id: string }) => island.id === islandId ? { ...island, title: cleanTitle, description: draftDescription.trim() } : island)));
+      saveIslands(islands.map((island: { id: string }) => island.id === islandId ? { ...island, title: cleanTitle, description: draftDescription.trim() } : island));
       setTitle(cleanTitle); setDescription(draftDescription.trim()); setEditOpen(false); toast("Island details updated.", "success");
     } catch { toast("Island details could not be saved.", "error"); }
   }
