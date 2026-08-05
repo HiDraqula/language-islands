@@ -37,6 +37,13 @@ export function IslandWorkspace({ islandId, islandTitle, islandDescription }: { 
   }, [islandId]);
 
   function persist(next: Phrase[]) { setPhrases(next); localStorage.setItem(`phrases:${islandId}`, JSON.stringify(next)); }
+  function persistUpdate(updateRows: (rows: Phrase[]) => Phrase[]) {
+    setPhrases((rows) => {
+      const next = updateRows(rows);
+      localStorage.setItem(`phrases:${islandId}`, JSON.stringify(next));
+      return next;
+    });
+  }
   function update(index: number, source: string) { persist(phrases.map((row, i) => i === index ? { ...row, source, status: "idle" } : row)); }
 
   async function speak(text: string) {
@@ -103,16 +110,18 @@ export function IslandWorkspace({ islandId, islandTitle, islandDescription }: { 
       const response = await fetch("/api/translate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text, targetLang: "DE", apiKey }) });
       const data = await response.json();
       if (!response.ok || !data.translation) throw new Error(data.error || "DeepL did not return a translation.");
-      const next = phrases.map((row, i) => i === index ? { ...row, translation: data.translation, status: "idle" as const } : row);
-      persist(next);
+      persistUpdate((rows) => rows.map((row, i) => i === index ? { ...row, translation: data.translation, status: "idle" as const } : row));
       if (autoPlay) speak(data.translation);
     } catch (error) { persist(phrases.map((row, i) => i === index ? { ...row, status: "error", translation: "Translation failed — retry" } : row)); toast(error instanceof Error ? error.message : "Translation failed. Please retry.", "error"); }
   }
 
   function addRow(focus = false) {
-    const next = [...phrases, { id: crypto.randomUUID(), source: "", translation: "", status: "idle" as const }];
-    persist(next);
-    if (focus) requestAnimationFrame(() => rowsRef.current[next.length - 1]?.focus());
+    let nextIndex = 0;
+    persistUpdate((rows) => {
+      nextIndex = rows.length;
+      return [...rows, { id: crypto.randomUUID(), source: "", translation: "", status: "idle" as const }];
+    });
+    if (focus) requestAnimationFrame(() => rowsRef.current[nextIndex]?.focus());
   }
 
   async function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>, index: number) {

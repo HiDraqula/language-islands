@@ -6,9 +6,24 @@ function escapeXml(value: string) {
 
 export async function POST(request: Request) {
   try {
-    const { provider = "elevenlabs", text, voiceId, apiKey, region, languageCode } = await request.json();
+    const { action, provider = "elevenlabs", text, voiceId, apiKey, region, languageCode } = await request.json();
+    if (action === "list-azure-voices") {
+      if (typeof apiKey !== "string" || !apiKey || typeof region !== "string" || !/^[a-z0-9-]+$/i.test(region)) {
+        return NextResponse.json({ error: "A valid Azure Speech key and region are required." }, { status: 400 });
+      }
+      const voicesResponse = await fetch(`https://${region}.tts.speech.microsoft.com/cognitiveservices/voices/list`, {
+        headers: { "Ocp-Apim-Subscription-Key": apiKey },
+        cache: "no-store",
+      });
+      if (!voicesResponse.ok) {
+        const message = (await voicesResponse.text().catch(() => "")).slice(0, 300) || "Azure could not load its voice catalogue. Check the key and region.";
+        return NextResponse.json({ error: message }, { status: voicesResponse.status });
+      }
+      const voices = await voicesResponse.json();
+      return NextResponse.json({ voices }, { headers: { "Cache-Control": "no-store" } });
+    }
     if (typeof text !== "string" || !text.trim() || text.length > 2500 || typeof voiceId !== "string" || !voiceId || typeof apiKey !== "string" || !apiKey) {
-      return NextResponse.json({ error: "Text, voice and ElevenLabs API key are required." }, { status: 400 });
+      return NextResponse.json({ error: "Text, voice and API key are required." }, { status: 400 });
     }
     if (provider === "azure") {
       if (typeof region !== "string" || !/^[a-z0-9-]+$/i.test(region)) return NextResponse.json({ error: "A valid Azure Speech region is required." }, { status: 400 });

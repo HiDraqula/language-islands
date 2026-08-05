@@ -147,8 +147,8 @@ button { cursor: pointer; }
 .modal-card { width: min(560px, 100%); max-height: calc(100vh - 40px); overflow: auto; position: relative; padding: 32px; border-radius: 26px; background: var(--card); box-shadow: 0 30px 90px rgba(24, 38, 33, .24); }
 .modal-card h2 { margin: 8px 0 24px; font-size: 38px; }
 .modal-card label, .settings-content label { display: grid; gap: 8px; margin-bottom: 18px; font-size: 13px; font-weight: 700; }
-.modal-card input, .modal-card textarea, .settings-content input { width: 100%; padding: 14px 15px; border: 1px solid var(--line); border-radius: 13px; outline: none; color: var(--ink); background: #fff; }
-.modal-card input:focus, .modal-card textarea:focus, .settings-content input:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(49, 95, 80, .1); }
+.modal-card input, .modal-card textarea, .settings-content input, .settings-content select { width: 100%; padding: 14px 15px; border: 1px solid var(--line); border-radius: 13px; outline: none; color: var(--ink); background: #fff; }
+.modal-card input:focus, .modal-card textarea:focus, .settings-content input:focus, .settings-content select:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(49, 95, 80, .1); }
 .modal-close { position: absolute; right: 20px; top: 20px; width: 38px; height: 38px; display: grid; place-items: center; border: 0; border-radius: 12px; background: #ebece4; color: var(--ink); }
 .icon-picker { min-width: 0; margin: 0 0 20px; padding: 0; border: 0; }
 .icon-picker legend { margin-bottom: 8px; font-size: 13px; font-weight: 700; }
@@ -212,6 +212,13 @@ button { cursor: pointer; }
 .engine-options span { display: grid; gap: 3px; }
 .engine-options small, .empty-note { color: var(--muted); font-weight: 400; line-height: 1.45; }
 .nested-settings { padding-top: 20px; border-top: 1px solid var(--line); }
+.voice-catalogue-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 4px 0 18px; padding: 15px; border-radius: 14px; background: var(--green-soft); }
+.voice-catalogue-head > div { display: grid; gap: 4px; }
+.voice-catalogue-head small, .voice-count { color: var(--muted); font-size: 12px; line-height: 1.45; }
+.voice-picker-grid { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; align-items: end; }
+.voice-picker-grid label { min-width: 0; }
+.voice-preview { margin-bottom: 18px; white-space: nowrap; }
+.voice-count { margin: -4px 0 18px; }
 .provider-guide h2 { margin-bottom: 20px; font-size: clamp(28px, 6vw, 38px); }
 .guide-section { padding: 15px 0; border-top: 1px solid var(--line); }
 .guide-section h3 { margin: 0 0 7px; font-size: 15px; }
@@ -247,13 +254,13 @@ button { cursor: pointer; }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) .topbar { background: rgba(16, 23, 20, .82); }
   :root:not([data-theme]) :is(.secondary-button, .back, .modal-close, .phrase-header, .sheet-list) { background: #222d28; }
-  :root:not([data-theme]) :is(.modal-card input, .modal-card textarea, .settings-content input, .mapping-fields select, .sheet-list button.active, .toast, .icon-search) { background: #1d2823; color: var(--ink); }
+  :root:not([data-theme]) :is(.modal-card input, .modal-card textarea, .settings-content input, .settings-content select, .mapping-fields select, .sheet-list button.active, .toast, .icon-search) { background: #1d2823; color: var(--ink); }
   :root:not([data-theme]) :is(.file-drop, .mapping-preview) { background: #131c18; }
 }
 
 :root[data-theme="dark"] .topbar { background: rgba(16, 23, 20, .82); }
 :root[data-theme="dark"] :is(.secondary-button, .back, .modal-close, .phrase-header, .sheet-list) { background: #222d28; }
-:root[data-theme="dark"] :is(.modal-card input, .modal-card textarea, .settings-content input, .mapping-fields select, .sheet-list button.active, .toast, .icon-search) { background: #1d2823; color: var(--ink); }
+:root[data-theme="dark"] :is(.modal-card input, .modal-card textarea, .settings-content input, .settings-content select, .mapping-fields select, .sheet-list button.active, .toast, .icon-search) { background: #1d2823; color: var(--ink); }
 :root[data-theme="dark"] :is(.file-drop, .mapping-preview) { background: #131c18; }
 
 @media (max-width: 820px) {
@@ -281,4 +288,7 @@ button { cursor: pointer; }
   .sheet-list small { display: none; }
   .sheet-list button { min-width: 145px; }
   .import-actions { flex-direction: column-reverse; }
+  .voice-catalogue-head { align-items: stretch; flex-direction: column; }
+  .voice-picker-grid { grid-template-columns: 1fr; }
+  .voice-preview { margin-top: -10px; }
 }
