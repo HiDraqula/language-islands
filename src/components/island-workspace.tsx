@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, LoaderCircle, Pause, Play, Plus, RefreshCw, Volume2 } from "lucide-react";
+import { ArrowLeft, LoaderCircle, Pause, Play, Plus, RefreshCw, Trash2, Volume2, X } from "lucide-react";
 import { KeyboardEvent, useEffect, useRef, useState } from "react";
 import { Header } from "./header";
 import { useToast } from "./ui-feedback";
-import { speakGerman, speakText } from "@/lib/speech";
+import { playText } from "@/lib/audio";
+import { useRouter } from "next/navigation";
 
 type Phrase = { id: string; source: string; translation: string; status?: "idle" | "translating" | "error" };
 type ListenMode = "german" | "english" | "both";
@@ -25,6 +26,8 @@ export function IslandWorkspace({ islandId, islandTitle, islandDescription }: { 
   const playbackRun = useRef(0);
   const rowsRef = useRef<HTMLTextAreaElement[]>([]);
   const toast = useToast();
+  const router = useRouter();
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   useEffect(() => {
     const saved = localStorage.getItem(`phrases:${islandId}`);
@@ -38,7 +41,7 @@ export function IslandWorkspace({ islandId, islandTitle, islandDescription }: { 
 
   async function speak(text: string) {
     if (!text) return toast("There is no translation to play yet.", "error");
-    const result = await speakGerman(text);
+    const result = await playText(text, "de-DE");
     if (!result.ok) toast(result.message, "error");
   }
 
@@ -65,7 +68,7 @@ export function IslandWorkspace({ islandId, islandTitle, islandDescription }: { 
 
       for (const item of items) {
         if (playbackRun.current !== run || !item.text.trim()) continue;
-        const result = await speakText(item.text, item.lang);
+        const result = await playText(item.text, item.lang);
         if (playbackRun.current !== run) return;
         if (!result.ok) {
           setIsPlayingAll(false);
@@ -79,6 +82,15 @@ export function IslandWorkspace({ islandId, islandTitle, islandDescription }: { 
       setIsPlayingAll(false);
       toast("Finished playing this island.", "success");
     }
+  }
+
+  function deleteIsland() {
+    let islands: { id: string }[] = [];
+    try { islands = JSON.parse(localStorage.getItem("language-islands") || "[]"); } catch { /* remove phrase data anyway */ }
+    localStorage.setItem("language-islands", JSON.stringify(islands.filter((island) => island.id !== islandId)));
+    localStorage.removeItem(`phrases:${islandId}`);
+    toast(`Deleted ${title}.`, "success");
+    router.push("/");
   }
 
   async function translate(index: number, autoPlay = false) {
@@ -131,6 +143,7 @@ export function IslandWorkspace({ islandId, islandTitle, islandDescription }: { 
               </button>
             </div>
             <label className="toggle-control"><span>Translate on Enter</span><input type="checkbox" checked={translateOnEnter} onChange={(event) => { setTranslateOnEnter(event.target.checked); localStorage.setItem("translate-on-enter", String(event.target.checked)); }} /><span className="toggle-track" /></label>
+            <button className="icon-button danger" type="button" onClick={() => setDeleteOpen(true)} aria-label={`Delete ${title}`} title="Delete island"><Trash2 size={18} /></button>
           </div>
         </div>
         <section className="phrase-table" aria-label={`${title} phrases`}>
@@ -149,6 +162,7 @@ export function IslandWorkspace({ islandId, islandTitle, islandDescription }: { 
           <button className="add-row" type="button" onClick={() => addRow(true)}><Plus size={16} /> Add another phrase</button>
         </section>
       </div>
+      {deleteOpen && <div className="modal-backdrop" role="presentation" onMouseDown={() => setDeleteOpen(false)}><section className="modal-card confirm-card" role="dialog" aria-modal="true" aria-labelledby="delete-island-title" onMouseDown={(event) => event.stopPropagation()}><button className="modal-close" type="button" onClick={() => setDeleteOpen(false)} aria-label="Close"><X size={19} /></button><span className="eyebrow danger">Permanent action</span><h2 className="display" id="delete-island-title">Delete “{title}”?</h2><p>This removes the island and all of its saved phrases from this browser. This cannot be undone.</p><div className="settings-actions"><button className="primary-button destructive-button" type="button" onClick={deleteIsland}><Trash2 size={16} /> Delete island</button><button className="secondary-button" type="button" onClick={() => setDeleteOpen(false)}>Cancel</button></div></section></div>}
     </main>
   );
 }

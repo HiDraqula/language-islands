@@ -63,7 +63,7 @@ export default function Home() {
     const saved = localStorage.getItem("language-islands");
     if (saved) {
       try { const parsed = JSON.parse(saved); queueMicrotask(() => setIslands(parsed)); } catch { /* keep defaults */ }
-    }
+    } else localStorage.setItem("language-islands", JSON.stringify(defaults));
   }, []);
 
   useEffect(() => {
