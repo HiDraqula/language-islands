@@ -4,14 +4,16 @@ import Link from "next/link";
 import { ArrowLeft, CheckCircle2, KeyRound, ShieldCheck, Trash2 } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 import { Header } from "@/components/header";
+import { useToast } from "@/components/ui-feedback";
 
 export default function SettingsPage() {
   const [key, setKey] = useState("");
   const [status, setStatus] = useState<"idle" | "testing" | "connected" | "invalid">("idle");
+  const toast = useToast();
 
   useEffect(() => {
     const saved = sessionStorage.getItem("deepl-api-key");
-    if (saved) { setKey(saved); setStatus("connected"); }
+    if (saved) queueMicrotask(() => { setKey(saved); setStatus("connected"); });
   }, []);
 
   async function testAndSave(event: FormEvent) {
@@ -23,11 +25,12 @@ export default function SettingsPage() {
       if (!response.ok) throw new Error();
       sessionStorage.setItem("deepl-api-key", key.trim());
       setStatus("connected");
-    } catch { setStatus("invalid"); }
+      toast("DeepL key connected for this browser session.", "success");
+    } catch { setStatus("invalid"); toast("Could not connect to DeepL. Check the key and try again.", "error"); }
   }
 
   function removeKey() {
-    sessionStorage.removeItem("deepl-api-key"); setKey(""); setStatus("idle");
+    sessionStorage.removeItem("deepl-api-key"); setKey(""); setStatus("idle"); toast("DeepL key removed.", "info");
   }
 
   return (

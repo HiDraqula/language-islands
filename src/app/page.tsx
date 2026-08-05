@@ -1,9 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowUpRight, BriefcaseBusiness, Coffee, Plus, ShoppingBasket, X } from "lucide-react";
+import { ArrowUpRight, BriefcaseBusiness, Coffee, Download, Plus, ShoppingBasket, Upload, X } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Header } from "@/components/header";
+import { ImportedIsland, ImportWizard } from "@/components/import-wizard";
+import { useToast } from "@/components/ui-feedback";
+import * as XLSX from "xlsx";
 
 type Island = { id: string; title: string; description: string; count: number; icon: "coffee" | "basket" | "briefcase"; tint: string; accent: string };
 
@@ -25,12 +28,20 @@ export default function Home() {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [importOpen, setImportOpen] = useState(false);
+  const toast = useToast();
 
   useEffect(() => {
     const saved = localStorage.getItem("language-islands");
     if (saved) {
-      try { setIslands(JSON.parse(saved)); } catch { /* keep defaults */ }
+      try { const parsed = JSON.parse(saved); queueMicrotask(() => setIslands(parsed)); } catch { /* keep defaults */ }
     }
+  }, []);
+
+  useEffect(() => {
+    const openImport = () => setImportOpen(true);
+    window.addEventListener("open-island-import", openImport);
+    return () => window.removeEventListener("open-island-import", openImport);
   }, []);
 
   const total = useMemo(() => islands.reduce((sum, island) => sum + island.count, 0), [islands]);
@@ -53,6 +64,27 @@ export default function Home() {
     setTitle(""); setDescription(""); setOpen(false);
   }
 
+  function addImported(imported: ImportedIsland[]) {
+    const next = [...islands, ...imported];
+    setIslands(next); localStorage.setItem("language-islands", JSON.stringify(next));
+  }
+
+  function exportWorkbook() {
+    try {
+      const workbook = XLSX.utils.book_new();
+      islands.forEach((island, index) => {
+        let phrases: { source?: string; translation?: string }[] = [];
+        try { phrases = JSON.parse(localStorage.getItem(`phrases:${island.id}`) || "[]"); } catch { /* export empty sheet */ }
+        const rows = phrases.filter((phrase) => phrase.source || phrase.translation).map((phrase) => ({ English: phrase.source || "", German: phrase.translation || "" }));
+        const sheet = XLSX.utils.json_to_sheet(rows.length ? rows : [{ English: "", German: "" }]);
+        const safeName = island.title.replace(/[\\/?*:[\]]/g, " ").slice(0, 28).trim() || `Island ${index + 1}`;
+        XLSX.utils.book_append_sheet(workbook, sheet, `${safeName} ${index + 1}`.slice(0, 31));
+      });
+      XLSX.writeFile(workbook, "language-islands.xlsx");
+      toast(`Exported ${islands.length} islands to Excel.`, "success");
+    } catch { toast("The Excel export could not be created.", "error"); }
+  }
+
   return (
     <main className="shell">
       <Header />
@@ -63,7 +95,11 @@ export default function Home() {
             <h1 className="display">Learn in little worlds that make sense.</h1>
             <p>Collect the phrases you actually need, organise them by context, and hear how they sound—one island at a time.</p>
           </div>
-          <button className="primary-button" type="button" onClick={() => setOpen(true)}><Plus size={18} /> New island</button>
+          <div className="hero-actions">
+            <button className="secondary-button" type="button" onClick={() => setImportOpen(true)}><Upload size={17} /> Import</button>
+            <button className="secondary-button" type="button" onClick={exportWorkbook}><Download size={17} /> Export</button>
+            <button className="primary-button" type="button" onClick={() => setOpen(true)}><Plus size={18} /> New island</button>
+          </div>
         </section>
         <div className="section-heading">
           <h2>Your islands</h2>
@@ -98,6 +134,7 @@ export default function Home() {
           </form>
         </div>
       )}
+      <ImportWizard open={importOpen} onClose={() => setImportOpen(false)} onImport={addImported} />
     </main>
   );
 }

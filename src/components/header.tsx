@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { Languages, Settings, Upload } from "lucide-react";
 
@@ -9,7 +11,7 @@ export function Header() {
         <span>Language Islands</span>
       </Link>
       <nav className="top-actions" aria-label="Main navigation">
-        <button className="secondary-button" type="button"><Upload size={16} /> Import</button>
+        <button className="secondary-button" type="button" onClick={() => window.dispatchEvent(new Event("open-island-import"))}><Upload size={16} /> Import</button>
         <Link href="/settings" className="icon-button" aria-label="Settings"><Settings size={20} /></Link>
         <button className="primary-button" type="button">Sign in</button>
       </nav>

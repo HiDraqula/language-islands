@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowLeft, LoaderCircle, Plus, RefreshCw, Volume2 } from "lucide-react";
 import { KeyboardEvent, useEffect, useRef, useState } from "react";
 import { Header } from "./header";
+import { useToast } from "./ui-feedback";
 
 type Phrase = { id: string; source: string; translation: string; status?: "idle" | "translating" | "error" };
 const starter: Phrase[] = [
@@ -18,23 +19,26 @@ export function IslandWorkspace({ islandId, islandTitle, islandDescription }: { 
   const [phrases, setPhrases] = useState<Phrase[]>(starter);
   const [translateOnEnter, setTranslateOnEnter] = useState(true);
   const rowsRef = useRef<HTMLTextAreaElement[]>([]);
+  const toast = useToast();
 
   useEffect(() => {
     const saved = localStorage.getItem(`phrases:${islandId}`);
-    if (saved) { try { setPhrases(JSON.parse(saved)); } catch { /* keep starter */ } }
+    if (saved) { try { const parsed = JSON.parse(saved); queueMicrotask(() => setPhrases(parsed)); } catch { /* keep starter */ } }
     const preference = localStorage.getItem("translate-on-enter");
-    if (preference !== null) setTranslateOnEnter(preference === "true");
+    if (preference !== null) queueMicrotask(() => setTranslateOnEnter(preference === "true"));
   }, [islandId]);
 
   function persist(next: Phrase[]) { setPhrases(next); localStorage.setItem(`phrases:${islandId}`, JSON.stringify(next)); }
   function update(index: number, source: string) { persist(phrases.map((row, i) => i === index ? { ...row, source, status: "idle" } : row)); }
 
   function speak(text: string) {
-    if (!text || !("speechSynthesis" in window)) return;
+    if (!text) return toast("There is no translation to play yet.", "error");
+    if (!("speechSynthesis" in window)) return toast("Audio is not supported by this browser.", "error");
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text); utterance.lang = "de-DE";
     const voice = window.speechSynthesis.getVoices().find((item) => item.lang.toLowerCase().startsWith("de"));
     if (voice) utterance.voice = voice;
+    utterance.onerror = () => toast("Audio could not play. Enable sound and install a German system voice.", "error");
     window.speechSynthesis.speak(utterance);
   }
 
@@ -42,16 +46,16 @@ export function IslandWorkspace({ islandId, islandTitle, islandDescription }: { 
     const text = phrases[index]?.source.trim();
     if (!text) return;
     const apiKey = sessionStorage.getItem("deepl-api-key");
-    if (!apiKey) { persist(phrases.map((row, i) => i === index ? { ...row, status: "error", translation: "Add your DeepL key in Settings first." } : row)); return; }
+    if (!apiKey) { persist(phrases.map((row, i) => i === index ? { ...row, status: "error", translation: "Add your DeepL key in Settings first." } : row)); toast("Add and test your DeepL key in Settings first.", "error"); return; }
     setPhrases((rows) => rows.map((row, i) => i === index ? { ...row, status: "translating", translation: "" } : row));
     try {
       const response = await fetch("/api/translate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text, targetLang: "DE", apiKey }) });
       const data = await response.json();
-      if (!response.ok || !data.translation) throw new Error();
+      if (!response.ok || !data.translation) throw new Error(data.error || "DeepL did not return a translation.");
       const next = phrases.map((row, i) => i === index ? { ...row, translation: data.translation, status: "idle" as const } : row);
       persist(next);
       if (autoPlay) speak(data.translation);
-    } catch { persist(phrases.map((row, i) => i === index ? { ...row, status: "error", translation: "Translation failed — retry" } : row)); }
+    } catch (error) { persist(phrases.map((row, i) => i === index ? { ...row, status: "error", translation: "Translation failed — retry" } : row)); toast(error instanceof Error ? error.message : "Translation failed. Please retry.", "error"); }
   }
 
   function addRow(focus = false) {
