@@ -3,21 +3,36 @@ import { recordUsage } from "./usage";
 
 export type AudioEngine = "system" | "elevenlabs" | "azure";
 
-function playBlob(blob: Blob, voiceName: string): Promise<SpeechResult> {
+let activeAudio: HTMLAudioElement | null = null;
+let finishActiveAudio: ((result: SpeechResult) => void) | null = null;
+
+function playBlob(blob: Blob, voiceName: string, rate: number): Promise<SpeechResult> {
   return new Promise((resolve) => {
     const url = URL.createObjectURL(blob);
     const audio = new Audio(url);
-    const finish = (result: SpeechResult) => { URL.revokeObjectURL(url); resolve(result); };
+    const finish = (result: SpeechResult) => {
+      if (activeAudio === audio) { activeAudio = null; finishActiveAudio = null; }
+      URL.revokeObjectURL(url); resolve(result);
+    };
+    activeAudio = audio;
+    finishActiveAudio = finish;
+    audio.playbackRate = rate;
     audio.onended = () => finish({ ok: true, voiceName });
     audio.onerror = () => finish({ ok: false, message: `The ${voiceName} audio file could not be played.` });
     audio.play().catch(() => finish({ ok: false, message: "Audio was blocked. Allow sound for this site and try again." }));
   });
 }
 
-export async function playText(text: string, lang: "de-DE" | "en-US"): Promise<SpeechResult> {
+export function stopAudio() {
+  window.speechSynthesis?.cancel();
+  if (activeAudio) { activeAudio.pause(); activeAudio.removeAttribute("src"); activeAudio.load(); }
+  finishActiveAudio?.({ ok: true });
+}
+
+export async function playText(text: string, lang: "de-DE" | "en-US", rate = 1): Promise<SpeechResult> {
   const engine = (localStorage.getItem("tts-engine") || "system") as AudioEngine;
   if (engine === "system") {
-    const result = await speakText(text, lang);
+    const result = await speakText(text, lang, rate);
     if (!result.ok) window.dispatchEvent(new CustomEvent("language-islands:audio-help", { detail: result.message }));
     return result;
   }
@@ -41,7 +56,7 @@ export async function playText(text: string, lang: "de-DE" | "en-US"): Promise<S
       const data = await response.json().catch(() => ({}));
       return { ok: false, message: data.error || `${isAzure ? "Azure Speech" : "ElevenLabs"} could not generate audio.` };
     }
-    return playBlob(await response.blob(), isAzure ? `Azure · ${voiceId}` : "ElevenLabs");
+    return playBlob(await response.blob(), isAzure ? `Azure · ${voiceId}` : "ElevenLabs", rate);
   } catch {
     return { ok: false, message: `Could not reach ${isAzure ? "Azure Speech" : "ElevenLabs"}. Check your connection and try again.` };
   }

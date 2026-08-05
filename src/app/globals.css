@@ -95,7 +95,7 @@ button { cursor: pointer; }
 .secondary-button { padding: 11px 16px; border-radius: 14px; color: var(--ink); background: #ebece4; font-weight: 650; }
 .primary-button { padding: 12px 17px; border-radius: 14px; color: white; background: var(--green); font-weight: 700; box-shadow: 0 8px 22px rgba(49,95,80,.17); }
 
-.page { width: min(1180px, calc(100% - 40px)); margin: 0 auto; padding: 64px 0 80px; }
+.page { width: min(1380px, calc(100% - 40px)); margin: 0 auto; padding: 64px 0 80px; }
 .hero { display: flex; justify-content: space-between; align-items: end; gap: 30px; margin-bottom: 42px; }
 .eyebrow { color: var(--green); text-transform: uppercase; letter-spacing: .14em; font-weight: 750; font-size: 12px; }
 .hero h1 { font-size: clamp(40px, 6vw, 68px); line-height: .99; letter-spacing: -.045em; margin: 10px 0 16px; max-width: 680px; }
@@ -299,11 +299,17 @@ button { cursor: pointer; }
 .density-control { display: flex; padding: 3px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
 .density-control button { width: 34px; height: 34px; display: grid; place-items: center; border: 0; border-radius: 9px; color: var(--muted); background: transparent; }
 .density-control button:hover, .density-control button.active { color: var(--green); background: var(--green-soft); }
-.density-compact .phrase-header > div, .density-compact .phrase-row > div { padding-top: 7px; padding-bottom: 7px; }
-.density-compact .phrase-row textarea { min-height: 31px; padding-top: 7px; padding-bottom: 7px; line-height: 1.25; }
-.density-comfortable .phrase-header > div, .density-comfortable .phrase-row > div { padding-top: 12px; padding-bottom: 12px; }
-.density-comfortable .phrase-row textarea { min-height: 48px; }
+.density-compact .phrase-header > div, .density-compact .phrase-row > div { padding: 5px 12px; }
+.density-compact .phrase-row { min-height: 42px; }
+.density-compact .phrase-row textarea { min-height: 26px; padding: 4px 0; line-height: 1.2; }
+.density-comfortable .phrase-header > div, .density-comfortable .phrase-row > div { padding: 9px 15px; }
+.density-comfortable .phrase-row { min-height: 56px; }
+.density-comfortable .phrase-row textarea { min-height: 36px; line-height: 1.35; }
 .density-relaxed .phrase-header > div, .density-relaxed .phrase-row > div { padding-top: 18px; padding-bottom: 18px; }
+.phrase-row { transition: background-color .22s ease, box-shadow .22s ease; }
+.phrase-row.is-playing { background: color-mix(in srgb, var(--green-soft) 70%, var(--card)); box-shadow: inset 4px 0 0 var(--green); }
+.phrase-row .playing-text { background: rgba(238, 186, 72, .22); }
+.phrase-row .playing-text textarea { color: var(--green); font-weight: 700; }
 .playback-dock { position: fixed; right: 22px; bottom: 22px; z-index: 70; display: flex; align-items: center; gap: 8px; width: min(480px, calc(100vw - 44px)); padding: 12px; border: 1px solid var(--line); border-radius: 18px; color: var(--ink); background: var(--card); box-shadow: 0 18px 55px rgba(24,38,33,.2); }
 .playback-dock > button { flex: 0 0 auto; width: 34px; height: 34px; display: grid; place-items: center; border: 0; border-radius: 10px; color: var(--ink); background: var(--paper); }
 .playback-dock .player-main { color: white; background: var(--green); }
@@ -311,6 +317,8 @@ button { cursor: pointer; }
 .player-progress > div { display: flex; justify-content: space-between; gap: 12px; font-size: 11px; }
 .player-progress span { color: var(--muted); }
 .player-progress input { width: 100%; accent-color: var(--green); }
+.speed-control { flex: 0 0 auto; display: grid; gap: 2px; color: var(--muted); font-size: 9px; text-transform: uppercase; letter-spacing: .05em; }
+.speed-control select { padding: 5px 6px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); background: var(--paper); font-size: 12px; font-weight: 750; }
 .mapping-preview > div:first-child { display: flex; justify-content: space-between; gap: 12px; }
 .preview-table { overflow: hidden; margin: 8px 0; border: 1px solid var(--line); border-radius: 10px; background: var(--card); }
 .preview-head, .preview-row { display: grid; grid-template-columns: 1fr 1fr; }
@@ -336,6 +344,8 @@ button { cursor: pointer; }
 
 @media (max-width: 560px) {
   .playback-dock { left: 12px; right: 12px; bottom: 12px; width: auto; }
+  .playback-dock { gap: 5px; padding: 9px; }
+  .speed-control span { display: none; }
   .usage-grid { grid-template-columns: 1fr 1fr; }
   .density-control { align-self: stretch; justify-content: center; margin-top: 0; }
 }

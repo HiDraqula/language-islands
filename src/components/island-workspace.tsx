@@ -5,13 +5,14 @@ import { AlignJustify, ArrowLeft, LayoutList, LoaderCircle, Pause, Pencil, Play,
 import { KeyboardEvent, useEffect, useRef, useState } from "react";
 import { Header } from "./header";
 import { useToast } from "./ui-feedback";
-import { playText } from "@/lib/audio";
+import { playText, stopAudio } from "@/lib/audio";
 import { recordUsage } from "@/lib/usage";
 import { saveIslands, savePhrases } from "@/lib/local-data";
 
 type Phrase = { id: string; source: string; translation: string; status?: "idle" | "translating" | "error" };
 type ListenMode = "german" | "english" | "both";
 type Density = "compact" | "comfortable" | "relaxed";
+type PlaybackRate = 0.75 | 1 | 1.25;
 const starter: Phrase[] = [
   { id: "starter-1", source: "Good morning, how are you?", translation: "Guten Morgen, wie geht es dir?" },
   { id: "starter-2", source: "Could you say that again, please?", translation: "Könnten Sie das bitte noch einmal sagen?" },
@@ -29,11 +30,16 @@ export function IslandWorkspace({ islandId, islandTitle, islandDescription }: { 
   const [density, setDensity] = useState<Density>("relaxed");
   const [playbackIndex, setPlaybackIndex] = useState(0);
   const [playerVisible, setPlayerVisible] = useState(false);
+  const [playbackRate, setPlaybackRate] = useState<PlaybackRate>(1);
+  const [activePhraseId, setActivePhraseId] = useState<string | null>(null);
+  const [activeLanguage, setActiveLanguage] = useState<"english" | "german" | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [draftTitle, setDraftTitle] = useState(fallbackTitle);
   const [draftDescription, setDraftDescription] = useState(islandDescription || "English → German");
   const playbackRun = useRef(0);
   const rowsRef = useRef<HTMLTextAreaElement[]>([]);
+  const phraseRowsRef = useRef<Record<string, HTMLDivElement | null>>({});
+  const scrollTimer = useRef<number | null>(null);
   const toast = useToast();
 
   useEffect(() => {
@@ -43,6 +49,9 @@ export function IslandWorkspace({ islandId, islandTitle, islandDescription }: { 
     if (preference !== null) queueMicrotask(() => setTranslateOnEnter(preference === "true"));
     const savedDensity = localStorage.getItem("island-density") as Density | null;
     if (savedDensity) queueMicrotask(() => setDensity(savedDensity));
+    const savedRate = Number(localStorage.getItem("playback-rate"));
+    if ([0.75, 1, 1.25].includes(savedRate)) queueMicrotask(() => setPlaybackRate(savedRate as PlaybackRate));
+    return () => { if (scrollTimer.current) window.clearTimeout(scrollTimer.current); stopAudio(); };
   }, [islandId]);
 
   function persist(next: Phrase[]) { setPhrases(next); savePhrases(islandId, next); }
@@ -50,14 +59,27 @@ export function IslandWorkspace({ islandId, islandTitle, islandDescription }: { 
   function update(index: number, source: string) { persist(phrases.map((row, i) => i === index ? { ...row, source, status: "idle" } : row)); }
   const playable = phrases.filter((phrase) => phrase.source.trim() || phrase.translation.trim());
 
-  async function speak(text: string) {
+  function activatePhrase(phraseId: string, language: "english" | "german") {
+    setActivePhraseId(phraseId); setActiveLanguage(language);
+    if (scrollTimer.current) window.clearTimeout(scrollTimer.current);
+    scrollTimer.current = window.setTimeout(() => {
+      const row = phraseRowsRef.current[phraseId];
+      if (!row) return;
+      const bounds = row.getBoundingClientRect();
+      const isOutsideView = bounds.top < 90 || bounds.bottom > window.innerHeight - 110;
+      if (isOutsideView) row.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 1500);
+  }
+
+  async function speak(text: string, phraseId?: string, language: "english" | "german" = "german") {
     if (!text) return toast("There is no translation to play yet.", "error");
     setPlayerVisible(true);
-    const result = await playText(text, "de-DE");
+    if (phraseId) activatePhrase(phraseId, language);
+    const result = await playText(text, language === "german" ? "de-DE" : "en-US", playbackRate);
     if (!result.ok) toast(result.message, "error");
   }
 
-  function stopPlayback() { playbackRun.current += 1; window.speechSynthesis?.cancel(); setIsPlayingAll(false); }
+  function stopPlayback() { playbackRun.current += 1; stopAudio(); setIsPlayingAll(false); }
 
   async function playAll() {
     if (!playable.length) return toast("Add at least one phrase before starting playback.", "error");
@@ -69,12 +91,13 @@ export function IslandWorkspace({ islandId, islandTitle, islandDescription }: { 
       for (const item of items) {
         if (playbackRun.current !== run) return;
         if (!item.text.trim()) continue;
-        const result = await playText(item.text, item.lang);
+        activatePhrase(phrase.id, item.lang === "de-DE" ? "german" : "english");
+        const result = await playText(item.text, item.lang, playbackRate);
         if (playbackRun.current !== run) return;
         if (!result.ok) { setIsPlayingAll(false); toast(result.message, "error"); return; }
       }
     }
-    if (playbackRun.current === run) { setIsPlayingAll(false); setPlaybackIndex(0); toast("Finished playing this island.", "success"); }
+    if (playbackRun.current === run) { setIsPlayingAll(false); setPlaybackIndex(0); setActivePhraseId(null); setActiveLanguage(null); toast("Finished playing this island.", "success"); }
   }
 
   async function translate(index: number, autoPlay = false) {
@@ -89,7 +112,7 @@ export function IslandWorkspace({ islandId, islandTitle, islandDescription }: { 
       const data = await response.json();
       if (!response.ok || !data.translation) throw new Error(data.error || "DeepL did not return a translation.");
       persistUpdate((rows) => rows.map((row, i) => i === index ? { ...row, translation: data.translation, status: "idle" as const } : row));
-      if (autoPlay) void speak(data.translation);
+      if (autoPlay) void speak(data.translation, phrases[index]?.id, "german");
     } catch (error) { persistUpdate((rows) => rows.map((row, i) => i === index ? { ...row, status: "error", translation: "Translation failed — retry" } : row)); toast(error instanceof Error ? error.message : "Translation failed. Please retry.", "error"); }
   }
 
@@ -112,9 +135,9 @@ export function IslandWorkspace({ islandId, islandTitle, islandDescription }: { 
         <label className="toggle-control"><span>Translate on Enter</span><input type="checkbox" checked={translateOnEnter} onChange={(event) => { setTranslateOnEnter(event.target.checked); localStorage.setItem("translate-on-enter", String(event.target.checked)); }} /><span className="toggle-track" /></label>
         <div className="density-control" role="group" aria-label="Row spacing"><button className={density === "compact" ? "active" : ""} type="button" onClick={() => chooseDensity("compact")} title="Compact view" aria-label="Compact view"><AlignJustify size={17} /></button><button className={density === "comfortable" ? "active" : ""} type="button" onClick={() => chooseDensity("comfortable")} title="Comfortable view" aria-label="Comfortable view"><Rows3 size={17} /></button><button className={density === "relaxed" ? "active" : ""} type="button" onClick={() => chooseDensity("relaxed")} title="Spaced view" aria-label="Spaced view"><LayoutList size={17} /></button></div>
       </div></div>
-    <section className={`phrase-table density-${density}`} aria-label={`${title} phrases`}><div className="phrase-header"><div>#</div><div>English</div><div>German · DeepL</div><div>Audio</div></div>{phrases.map((phrase, index) => <div className="phrase-row" key={phrase.id}><div className="row-number">{index + 1}</div><div><textarea ref={(node) => { if (node) rowsRef.current[index] = node; }} aria-label={`English phrase ${index + 1}`} rows={density === "compact" ? 1 : 2} value={phrase.source} placeholder="Type a phrase, then press Enter…" onChange={(event) => update(index, event.target.value)} onKeyDown={(event) => handleKeyDown(event, index)} /></div><div className={`translation ${phrase.status === "error" ? "translation-error" : ""}`}>{phrase.status === "translating" ? <span className="translation-state"><LoaderCircle className="spin" size={16} /> Translating…</span> : phrase.translation || "Translation will appear here"}{phrase.source && phrase.status !== "translating" && <button className="retry" type="button" onClick={() => translate(index)} aria-label={`Translate phrase ${index + 1}`}><RefreshCw size={14} /> {phrase.status === "error" ? "Retry" : "Translate"}</button>}</div><div><button className="speak" aria-label={`Play phrase ${index + 1}`} type="button" disabled={!phrase.translation || phrase.status === "error"} onClick={() => { const playableIndex = playable.findIndex((item) => item.id === phrase.id); setPlaybackIndex(Math.max(0, playableIndex)); void speak(phrase.translation); }}><Volume2 size={20} /></button></div></div>)}<button className="add-row" type="button" onClick={() => addRow(true)}><Plus size={16} /> Add another phrase</button></section>
+    <section className={`phrase-table density-${density}`} aria-label={`${title} phrases`}><div className="phrase-header"><div>#</div><div>English</div><div>German · DeepL</div><div>Audio</div></div>{phrases.map((phrase, index) => <div ref={(node) => { phraseRowsRef.current[phrase.id] = node; }} className={`phrase-row ${activePhraseId === phrase.id ? "is-playing" : ""}`} key={phrase.id}><div className="row-number">{index + 1}</div><div className={activePhraseId === phrase.id && activeLanguage === "english" ? "playing-text" : ""}><textarea ref={(node) => { if (node) rowsRef.current[index] = node; }} aria-label={`English phrase ${index + 1}`} rows={density === "compact" ? 1 : 2} value={phrase.source} placeholder="Type a phrase, then press Enter…" onChange={(event) => update(index, event.target.value)} onKeyDown={(event) => handleKeyDown(event, index)} /></div><div className={`translation ${phrase.status === "error" ? "translation-error" : ""} ${activePhraseId === phrase.id && activeLanguage === "german" ? "playing-text" : ""}`}>{phrase.status === "translating" ? <span className="translation-state"><LoaderCircle className="spin" size={16} /> Translating…</span> : phrase.translation || "Translation will appear here"}{phrase.source && phrase.status !== "translating" && <button className="retry" type="button" onClick={() => translate(index)} aria-label={`Translate phrase ${index + 1}`}><RefreshCw size={14} /> {phrase.status === "error" ? "Retry" : "Translate"}</button>}</div><div><button className="speak" aria-label={`Play phrase ${index + 1}`} type="button" disabled={!phrase.translation || phrase.status === "error"} onClick={() => { const playableIndex = playable.findIndex((item) => item.id === phrase.id); setPlaybackIndex(Math.max(0, playableIndex)); void speak(phrase.translation, phrase.id, "german"); }}><Volume2 size={20} /></button></div></div>)}<button className="add-row" type="button" onClick={() => addRow(true)}><Plus size={16} /> Add another phrase</button></section>
   </div>
-  {playerVisible && <aside className="playback-dock" aria-label="Audio player"><button type="button" onClick={() => { stopPlayback(); setPlaybackIndex(Math.max(0, playbackIndex - 1)); }} aria-label="Previous row"><SkipBack size={17} /></button><button className="player-main" type="button" onClick={isPlayingAll ? stopPlayback : playAll} aria-label={isPlayingAll ? "Pause playback" : "Resume playback"}>{isPlayingAll ? <Pause size={19} /> : <Play size={19} />}</button><div className="player-progress"><div><strong>{isPlayingAll ? "Playing island" : "Playback ready"}</strong><span>Row {Math.min(playbackIndex + 1, Math.max(playable.length, 1))} of {playable.length}</span></div><input type="range" min="0" max={Math.max(0, playable.length - 1)} value={Math.min(playbackIndex, Math.max(0, playable.length - 1))} onChange={(event) => { stopPlayback(); setPlaybackIndex(Number(event.target.value)); }} aria-label="Playback row" /></div><button type="button" onClick={() => { stopPlayback(); setPlaybackIndex(Math.min(playbackIndex + 1, Math.max(0, playable.length - 1))); }} aria-label="Next row"><SkipForward size={17} /></button><button type="button" onClick={() => { stopPlayback(); setPlaybackIndex(0); setPlayerVisible(false); }} aria-label="Close player"><X size={17} /></button></aside>}
+  {playerVisible && <aside className="playback-dock" aria-label="Audio player"><button type="button" onClick={() => { stopPlayback(); setPlaybackIndex(Math.max(0, playbackIndex - 1)); }} aria-label="Previous row"><SkipBack size={17} /></button><button className="player-main" type="button" onClick={isPlayingAll ? stopPlayback : playAll} aria-label={isPlayingAll ? "Pause playback" : "Resume playback"}>{isPlayingAll ? <Pause size={19} /> : <Play size={19} />}</button><div className="player-progress"><div><strong>{isPlayingAll ? "Playing island" : "Playback ready"}</strong><span>Row {Math.min(playbackIndex + 1, Math.max(playable.length, 1))} of {playable.length}</span></div><input type="range" min="0" max={Math.max(0, playable.length - 1)} value={Math.min(playbackIndex, Math.max(0, playable.length - 1))} onChange={(event) => { stopPlayback(); const next = Number(event.target.value); setPlaybackIndex(next); const phrase = playable[next]; if (phrase) activatePhrase(phrase.id, listenMode === "english" ? "english" : "german"); }} aria-label="Playback row" /></div><label className="speed-control" title="Playback speed"><span>Speed</span><select value={playbackRate} onChange={(event) => { const rate = Number(event.target.value) as PlaybackRate; stopPlayback(); setPlaybackRate(rate); localStorage.setItem("playback-rate", String(rate)); }} aria-label="Playback speed"><option value={0.75}>0.75×</option><option value={1}>1×</option><option value={1.25}>1.25×</option></select></label><button type="button" onClick={() => { stopPlayback(); setPlaybackIndex(Math.min(playbackIndex + 1, Math.max(0, playable.length - 1))); }} aria-label="Next row"><SkipForward size={17} /></button><button type="button" onClick={() => { stopPlayback(); setPlaybackIndex(0); setPlayerVisible(false); setActivePhraseId(null); setActiveLanguage(null); }} aria-label="Close player"><X size={17} /></button></aside>}
   {editOpen && <div className="modal-backdrop" role="presentation" onMouseDown={() => setEditOpen(false)}><section className="modal-card" role="dialog" aria-modal="true" aria-labelledby="edit-island-title" onMouseDown={(event) => event.stopPropagation()}><button className="modal-close" type="button" onClick={() => setEditOpen(false)} aria-label="Close"><X size={19} /></button><span className="eyebrow">Island details</span><h2 className="display" id="edit-island-title">Edit island</h2><label>Island name<input autoFocus value={draftTitle} onChange={(event) => setDraftTitle(event.target.value)} /></label><label>Description<textarea rows={3} value={draftDescription} onChange={(event) => setDraftDescription(event.target.value)} /></label><button className="primary-button" type="button" onClick={saveIslandDetails}>Save changes</button></section></div>}
   </main>;
 }

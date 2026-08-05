@@ -18,7 +18,7 @@ function loadVoices(timeoutMs = 1500): Promise<SpeechSynthesisVoice[]> {
   });
 }
 
-export async function speakText(text: string, lang: "de-DE" | "en-US"): Promise<SpeechResult> {
+export async function speakText(text: string, lang: "de-DE" | "en-US", rate = 1): Promise<SpeechResult> {
   if (!("speechSynthesis" in window) || !("SpeechSynthesisUtterance" in window)) {
     return { ok: false, message: "Speech synthesis is not supported by this browser." };
   }
@@ -30,7 +30,7 @@ export async function speakText(text: string, lang: "de-DE" | "en-US"): Promise<
   const fallbackVoice = voices.find((voice) => /^en([-_]|$)/i.test(voice.lang)) ?? voices[0];
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = lang;
-  utterance.rate = 0.95;
+  utterance.rate = rate;
   utterance.voice = preferredVoice ?? fallbackVoice ?? null;
 
   return new Promise((resolve) => {
@@ -60,3 +60,4 @@ export async function speakText(text: string, lang: "de-DE" | "en-US"): Promise<
 export function speakGerman(text: string) {
   return speakText(text, "de-DE");
 }
+95fddb4a7dc35a5c02ea767f61d0363164b05e7e
