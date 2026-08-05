@@ -1,14 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowUpRight, BriefcaseBusiness, Coffee, Download, Plus, ShoppingBasket, Upload, X } from "lucide-react";
+import { ArrowUpRight, BookOpen, BriefcaseBusiness, Bus, CakeSlice, Camera, Coffee, Compass, Download, Dumbbell, GraduationCap, HeartPulse, Home as HomeIcon, Landmark, Languages, Map, Music, Palmtree, Plane, Plus, Search, ShoppingBasket, Sparkles, Store, Train, TreePine, Upload, Utensils, Users, X } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Header } from "@/components/header";
 import { ImportedIsland, ImportWizard } from "@/components/import-wizard";
 import { useToast } from "@/components/ui-feedback";
 import * as XLSX from "xlsx";
 
-type Island = { id: string; title: string; description: string; count: number; icon: "coffee" | "basket" | "briefcase"; tint: string; accent: string };
+type Island = { id: string; title: string; description: string; count: number; icon: string; tint: string; accent: string };
 
 const defaults: Island[] = [
   { id: "daily-conversations", title: "Daily conversations", description: "Small talk, greetings and phrases for everyday moments.", count: 2, icon: "coffee", tint: "#e7e0ca", accent: "#8a6c2e" },
@@ -16,7 +16,33 @@ const defaults: Island[] = [
   { id: "work-and-study", title: "Work & study", description: "Useful language for university, meetings and new opportunities.", count: 0, icon: "briefcase", tint: "#f2dcd4", accent: "#a45c46" },
 ];
 
-const icons = { coffee: Coffee, basket: ShoppingBasket, briefcase: BriefcaseBusiness };
+const iconOptions = [
+  { id: "coffee", label: "Conversation", Icon: Coffee, keywords: "daily cafe morning speaking conversation" },
+  { id: "basket", label: "Groceries", Icon: ShoppingBasket, keywords: "grocery shopping market supermarket food" },
+  { id: "briefcase", label: "Work", Icon: BriefcaseBusiness, keywords: "work job office business career" },
+  { id: "book", label: "Reading", Icon: BookOpen, keywords: "book reading vocabulary grammar study" },
+  { id: "graduation", label: "School", Icon: GraduationCap, keywords: "school university college education study exam" },
+  { id: "languages", label: "Languages", Icon: Languages, keywords: "language translation words phrases" },
+  { id: "home", label: "Home", Icon: HomeIcon, keywords: "home house family apartment room" },
+  { id: "users", label: "People", Icon: Users, keywords: "people friends family social meeting" },
+  { id: "restaurant", label: "Restaurant", Icon: Utensils, keywords: "restaurant food eating menu dinner lunch" },
+  { id: "store", label: "Shops", Icon: Store, keywords: "shop store buying retail" },
+  { id: "plane", label: "Flights", Icon: Plane, keywords: "travel flight airport holiday vacation" },
+  { id: "train", label: "Train", Icon: Train, keywords: "train station transport travel commute" },
+  { id: "bus", label: "Bus", Icon: Bus, keywords: "bus transport travel commute ticket" },
+  { id: "map", label: "Directions", Icon: Map, keywords: "map directions location navigation city" },
+  { id: "compass", label: "Travel", Icon: Compass, keywords: "travel explore directions adventure" },
+  { id: "health", label: "Health", Icon: HeartPulse, keywords: "health doctor hospital medicine body" },
+  { id: "fitness", label: "Fitness", Icon: Dumbbell, keywords: "fitness gym sport exercise workout" },
+  { id: "music", label: "Music", Icon: Music, keywords: "music song listening entertainment" },
+  { id: "camera", label: "Memories", Icon: Camera, keywords: "camera photo memories media" },
+  { id: "cake", label: "Celebrations", Icon: CakeSlice, keywords: "birthday party celebration festival" },
+  { id: "landmark", label: "Culture", Icon: Landmark, keywords: "culture history museum government city" },
+  { id: "nature", label: "Nature", Icon: TreePine, keywords: "nature outdoors park forest environment" },
+  { id: "island", label: "Island", Icon: Palmtree, keywords: "island holiday beach leisure" },
+  { id: "sparkles", label: "General", Icon: Sparkles, keywords: "general favourites ideas misc" },
+] as const;
+const icons = Object.fromEntries(iconOptions.map((option) => [option.id, option.Icon]));
 const colors = [
   { tint: "#dbe8df", accent: "#315f50" },
   { tint: "#e7e0ca", accent: "#8a6c2e" },
@@ -28,6 +54,8 @@ export default function Home() {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [selectedIcon, setSelectedIcon] = useState("sparkles");
+  const [iconSearch, setIconSearch] = useState("");
   const [importOpen, setImportOpen] = useState(false);
   const toast = useToast();
 
@@ -45,6 +73,19 @@ export default function Home() {
   }, []);
 
   const total = useMemo(() => islands.reduce((sum, island) => sum + island.count, 0), [islands]);
+  const rankedIcons = useMemo(() => {
+    const search = iconSearch.trim().toLowerCase();
+    const nameWords = title.toLowerCase().split(/\W+/).filter((word) => word.length > 1);
+    return iconOptions
+      .map((option, index) => {
+        const haystack = `${option.id} ${option.label} ${option.keywords}`.toLowerCase();
+        const searchScore = search && haystack.includes(search) ? 100 : search ? -100 : 0;
+        const titleScore = nameWords.reduce((score, word) => score + (haystack.includes(word) ? 12 : 0), 0);
+        return { ...option, score: searchScore + titleScore - index / 100 };
+      })
+      .filter((option) => !search || option.score > 0)
+      .sort((a, b) => b.score - a.score);
+  }, [iconSearch, title]);
 
   function createIsland(event: FormEvent) {
     event.preventDefault();
@@ -56,12 +97,12 @@ export default function Home() {
       title: cleanTitle,
       description: description.trim() || "A new collection of useful phrases.",
       count: 0,
-      icon: "coffee" as const,
+      icon: selectedIcon,
       ...color,
     }];
     setIslands(next);
     localStorage.setItem("language-islands", JSON.stringify(next));
-    setTitle(""); setDescription(""); setOpen(false);
+    setTitle(""); setDescription(""); setSelectedIcon("sparkles"); setIconSearch(""); setOpen(false);
   }
 
   function addImported(imported: ImportedIsland[]) {
@@ -107,7 +148,7 @@ export default function Home() {
         </div>
         <section className="island-grid" aria-label="Language islands">
           {islands.map(({ id, title: islandTitle, description: islandDescription, count, icon, tint, accent }) => {
-            const Icon = icons[icon] ?? Coffee;
+            const Icon = icons[icon] ?? Sparkles;
             return (
               <article className="island-card" key={id} style={{ "--tint": tint, "--accent": accent } as React.CSSProperties}>
                 <div className="island-icon"><Icon size={22} /></div>
@@ -130,6 +171,18 @@ export default function Home() {
             <h2 className="display">New island</h2>
             <label>Island name<input autoFocus value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Travel & directions" /></label>
             <label>Description<textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Useful phrases for getting around" rows={3} /></label>
+            <fieldset className="icon-picker">
+              <legend>Island icon</legend>
+              <div className="icon-search"><Search size={16} /><input value={iconSearch} onChange={(event) => setIconSearch(event.target.value)} placeholder="Search icons…" aria-label="Search island icons" /></div>
+              <div className="icon-options" role="listbox" aria-label="Choose an island icon">
+                {rankedIcons.map(({ id, label, Icon }) => (
+                  <button className={selectedIcon === id ? "selected" : ""} type="button" key={id} onClick={() => setSelectedIcon(id)} role="option" aria-selected={selectedIcon === id} title={label}>
+                    <Icon size={20} /><span>{label}</span>
+                  </button>
+                ))}
+                {!rankedIcons.length && <p>No matching icons. Try another word.</p>}
+              </div>
+            </fieldset>
             <button className="primary-button" type="submit"><Plus size={17} /> Create island</button>
           </form>
         </div>

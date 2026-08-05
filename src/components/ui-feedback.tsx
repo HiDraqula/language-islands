@@ -2,6 +2,7 @@
 
 import { createContext, ReactNode, useCallback, useContext, useEffect, useState } from "react";
 import { CheckCircle2, Volume2, X } from "lucide-react";
+import { speakGerman } from "@/lib/speech";
 
 type ToastKind = "success" | "error" | "info";
 type Toast = { id: number; message: string; kind: ToastKind };
@@ -30,23 +31,16 @@ export function UiFeedback({ children }: { children: ReactNode }) {
     setAudioPrompt(false);
   }
 
-  function enableAudio() {
-    if (!("speechSynthesis" in window)) {
-      toast("Audio is not supported by this browser.", "error");
+  async function enableAudio() {
+    const result = await speakGerman("Audio ist aktiviert.");
+    if (result.ok) {
+      localStorage.setItem("audio-enabled", "true");
+      toast(result.voiceName ? `Audio is ready · ${result.voiceName}` : "Audio is ready.", "success");
       dismissAudio();
-      return;
+    } else {
+      localStorage.removeItem("audio-enabled");
+      toast(result.message, "error");
     }
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance("Audio ist aktiviert.");
-    utterance.lang = "de-DE";
-    const voices = window.speechSynthesis.getVoices();
-    const germanVoice = voices.find((voice) => voice.lang.toLowerCase().startsWith("de"));
-    if (germanVoice) utterance.voice = germanVoice;
-    utterance.onend = () => toast("Audio is ready.", "success");
-    utterance.onerror = () => toast("Audio could not start. Check browser sound and installed voices.", "error");
-    window.speechSynthesis.speak(utterance);
-    localStorage.setItem("audio-enabled", "true");
-    dismissAudio();
   }
 
   return (

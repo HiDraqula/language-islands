@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, LoaderCircle, Plus, RefreshCw, Volume2 } from "lucide-react";
+import { ArrowLeft, LoaderCircle, Pause, Play, Plus, RefreshCw, Volume2 } from "lucide-react";
 import { KeyboardEvent, useEffect, useRef, useState } from "react";
 import { Header } from "./header";
 import { useToast } from "./ui-feedback";
+import { speakGerman, speakText } from "@/lib/speech";
 
 type Phrase = { id: string; source: string; translation: string; status?: "idle" | "translating" | "error" };
+type ListenMode = "german" | "english" | "both";
 const starter: Phrase[] = [
   { id: "starter-1", source: "Good morning, how are you?", translation: "Guten Morgen, wie geht es dir?" },
   { id: "starter-2", source: "Could you say that again, please?", translation: "Könnten Sie das bitte noch einmal sagen?" },
@@ -18,6 +20,9 @@ export function IslandWorkspace({ islandId, islandTitle, islandDescription }: { 
   const description = islandDescription || "English → German";
   const [phrases, setPhrases] = useState<Phrase[]>(starter);
   const [translateOnEnter, setTranslateOnEnter] = useState(true);
+  const [listenMode, setListenMode] = useState<ListenMode>("both");
+  const [isPlayingAll, setIsPlayingAll] = useState(false);
+  const playbackRun = useRef(0);
   const rowsRef = useRef<HTMLTextAreaElement[]>([]);
   const toast = useToast();
 
@@ -31,15 +36,49 @@ export function IslandWorkspace({ islandId, islandTitle, islandDescription }: { 
   function persist(next: Phrase[]) { setPhrases(next); localStorage.setItem(`phrases:${islandId}`, JSON.stringify(next)); }
   function update(index: number, source: string) { persist(phrases.map((row, i) => i === index ? { ...row, source, status: "idle" } : row)); }
 
-  function speak(text: string) {
+  async function speak(text: string) {
     if (!text) return toast("There is no translation to play yet.", "error");
-    if (!("speechSynthesis" in window)) return toast("Audio is not supported by this browser.", "error");
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text); utterance.lang = "de-DE";
-    const voice = window.speechSynthesis.getVoices().find((item) => item.lang.toLowerCase().startsWith("de"));
-    if (voice) utterance.voice = voice;
-    utterance.onerror = () => toast("Audio could not play. Enable sound and install a German system voice.", "error");
-    window.speechSynthesis.speak(utterance);
+    const result = await speakGerman(text);
+    if (!result.ok) toast(result.message, "error");
+  }
+
+  function stopPlayback() {
+    playbackRun.current += 1;
+    window.speechSynthesis?.cancel();
+    setIsPlayingAll(false);
+  }
+
+  async function playAll() {
+    const playable = phrases.filter((phrase) => phrase.source.trim() || phrase.translation.trim());
+    if (!playable.length) return toast("Add at least one phrase before starting playback.", "error");
+
+    const run = playbackRun.current + 1;
+    playbackRun.current = run;
+    setIsPlayingAll(true);
+
+    for (const phrase of playable) {
+      const items = listenMode === "both"
+        ? [{ text: phrase.source, lang: "en-US" as const }, { text: phrase.translation, lang: "de-DE" as const }]
+        : listenMode === "english"
+          ? [{ text: phrase.source, lang: "en-US" as const }]
+          : [{ text: phrase.translation, lang: "de-DE" as const }];
+
+      for (const item of items) {
+        if (playbackRun.current !== run || !item.text.trim()) continue;
+        const result = await speakText(item.text, item.lang);
+        if (playbackRun.current !== run) return;
+        if (!result.ok) {
+          setIsPlayingAll(false);
+          toast(result.message, "error");
+          return;
+        }
+      }
+    }
+
+    if (playbackRun.current === run) {
+      setIsPlayingAll(false);
+      toast("Finished playing this island.", "success");
+    }
   }
 
   async function translate(index: number, autoPlay = false) {
@@ -80,7 +119,19 @@ export function IslandWorkspace({ islandId, islandTitle, islandDescription }: { 
             <Link href="/" className="back" aria-label="Back to all islands"><ArrowLeft size={20} /></Link>
             <div><h1 className="display">{title}</h1><p>{description}</p></div>
           </div>
-          <label className="toggle-control"><span>Translate on Enter</span><input type="checkbox" checked={translateOnEnter} onChange={(event) => { setTranslateOnEnter(event.target.checked); localStorage.setItem("translate-on-enter", String(event.target.checked)); }} /><span className="toggle-track" /></label>
+          <div className="workspace-actions">
+            <div className="listen-control">
+              <select aria-label="Columns to play" value={listenMode} onChange={(event) => setListenMode(event.target.value as ListenMode)} disabled={isPlayingAll}>
+                <option value="both">English → German</option>
+                <option value="german">German only</option>
+                <option value="english">English only</option>
+              </select>
+              <button className="secondary-button" type="button" onClick={isPlayingAll ? stopPlayback : playAll}>
+                {isPlayingAll ? <Pause size={16} /> : <Play size={16} />} {isPlayingAll ? "Stop" : "Play all"}
+              </button>
+            </div>
+            <label className="toggle-control"><span>Translate on Enter</span><input type="checkbox" checked={translateOnEnter} onChange={(event) => { setTranslateOnEnter(event.target.checked); localStorage.setItem("translate-on-enter", String(event.target.checked)); }} /><span className="toggle-track" /></label>
+          </div>
         </div>
         <section className="phrase-table" aria-label={`${title} phrases`}>
           <div className="phrase-header"><div>#</div><div>English</div><div>German · DeepL</div><div>Audio</div></div>
