@@ -19,9 +19,9 @@ export function Header() {
         <AudioQuickSettings />
         <ThemeToggle />
         <Link href="/settings" className="icon-button" aria-label="Settings"><Settings size={20} /></Link>
-        {syncing && <span className="sync-status"><LoaderCircle className="spin" size={15} /> Syncing</span>}
         {user ? <button className="secondary-button" type="button" onClick={signOutUser} title={user.email || "Signed in"}><Cloud size={16} /> <span className="account-label">{user.displayName?.split(" ")[0] || "Account"}</span><LogOut size={14} /></button> : <button className="primary-button" type="button" onClick={signIn} disabled={loading}>{loading ? "Loading…" : "Sign in with Google"}</button>}
       </nav>
+      {syncing && <div className="sync-status" role="status" aria-live="polite"><LoaderCircle className="spin" size={16} /> Syncing…</div>}
     </header>
   );
 }
