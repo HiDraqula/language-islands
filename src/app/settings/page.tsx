@@ -9,6 +9,7 @@ import { useToast } from "@/components/ui-feedback";
 import { playText, AudioEngine } from "@/lib/audio";
 import { readUsage, recordUsage, resetUsage, UsageStats } from "@/lib/usage";
 import { PREFERENCES_APPLIED, readSyncedPreferences, removeIslandData, saveIslands, savePreference } from "@/lib/local-data";
+import { downloadApiCredentials, uploadApiCredentials } from "@/lib/secret-sync";
 
 type Island = { id: string; title: string; description?: string };
 type ProviderGuide = "elevenlabs" | "azure";
@@ -41,6 +42,7 @@ export default function SettingsPage() {
   const [deleteTarget, setDeleteTarget] = useState<Island | null>(null);
   const [providerGuide, setProviderGuide] = useState<ProviderGuide | null>(null);
   const [usage, setUsage] = useState<UsageStats>(() => readUsage());
+  const [credentialSyncing, setCredentialSyncing] = useState<"upload" | "download" | null>(null);
   const { user, syncing, lastSyncedAt, syncNow } = useAuth();
   const toast = useToast();
 
@@ -160,6 +162,41 @@ export default function SettingsPage() {
     catch { toast("The browser could not copy the settings.", "error"); }
   }
 
+  async function syncCredentials() {
+    if (!user) return toast("Sign in with Google before syncing API credentials.", "error");
+    if (!deeplKey.trim() && !elevenKey.trim() && !azureKey.trim()) return toast("Enter at least one API credential before syncing.", "error");
+    setCredentialSyncing("upload");
+    try {
+      await uploadApiCredentials(user, {
+        deeplKey: deeplKey.trim(),
+        elevenLabsKey: elevenKey.trim(),
+        azureSpeechKey: azureKey.trim(),
+      });
+      toast("DeepL, ElevenLabs and Azure credentials are encrypted and synced.", "success");
+    } catch (error) {
+      toast(error instanceof Error ? error.message : "API credentials could not sync.", "error");
+    } finally { setCredentialSyncing(null); }
+  }
+
+  async function restoreCredentials() {
+    if (!user) return toast("Sign in with Google before restoring API credentials.", "error");
+    setCredentialSyncing("download");
+    try {
+      const credentials = await downloadApiCredentials(user);
+      if (!credentials) return toast("No synced API credentials were found.", "info");
+      setDeeplKey(credentials.deeplKey); setElevenKey(credentials.elevenLabsKey); setAzureKey(credentials.azureSpeechKey);
+      if (credentials.deeplKey) sessionStorage.setItem("deepl-api-key", credentials.deeplKey); else sessionStorage.removeItem("deepl-api-key");
+      if (credentials.elevenLabsKey) sessionStorage.setItem("elevenlabs-api-key", credentials.elevenLabsKey); else sessionStorage.removeItem("elevenlabs-api-key");
+      if (credentials.azureSpeechKey) sessionStorage.setItem("azure-speech-api-key", credentials.azureSpeechKey); else sessionStorage.removeItem("azure-speech-api-key");
+      setDeeplStatus(credentials.deeplKey ? "connected" : "idle");
+      setElevenStatus(credentials.elevenLabsKey ? "connected" : "idle");
+      setAzureStatus(credentials.azureSpeechKey ? "connected" : "idle");
+      toast("Synced API credentials are ready on this device.", "success");
+    } catch (error) {
+      toast(error instanceof Error ? error.message : "API credentials could not be restored.", "error");
+    } finally { setCredentialSyncing(null); }
+  }
+
   return <main className="shell"><Header /><div className="page settings-page">
     <div className="workspace-head"><Link href="/" className="back" aria-label="Back"><ArrowLeft size={20} /></Link><div><h1 className="display">Settings</h1><p>Translation, pronunciation and data preferences</p></div></div>
     <section className="settings-card"><div className="settings-icon"><KeyRound size={21} /></div><form className="settings-content" onSubmit={testDeepL}><h2>DeepL translation</h2><p>Your personal key stays in this browser session and is sent through the website only when you translate.</p><label>DeepL authentication key<input type="password" autoComplete="off" value={deeplKey} onChange={(e) => { setDeeplKey(e.target.value); setDeeplStatus("idle"); }} placeholder="Enter your DeepL API key" /></label><div className="settings-actions"><button className="primary-button" disabled={!deeplKey.trim() || deeplStatus === "testing"} type="submit">{deeplStatus === "testing" ? "Testing…" : "Test & save key"}</button>{deeplKey && <button className="secondary-button danger" type="button" onClick={removeDeepL}><Trash2 size={16} /> Remove</button>}</div>{deeplStatus === "connected" && <div className="connection success"><CheckCircle2 size={17} /> Connected to DeepL</div>}<div className="security-note"><ShieldCheck size={17} /> Keys clear when this browser session ends.</div></form></section>
@@ -168,7 +205,7 @@ export default function SettingsPage() {
 
     <section className="settings-card"><div className="settings-icon"><HelpCircle size={21} /></div><div className="settings-content"><h2>Audio setup guides</h2><p>Open the guide for your selected audio method. System voice help automatically detects Windows, macOS, or Linux.</p><div className="settings-actions"><button className="secondary-button" type="button" onClick={() => window.dispatchEvent(new Event("language-islands:audio-help"))}><Volume2 size={16} /> Set up system voice</button><button className="secondary-button" type="button" onClick={() => setProviderGuide("elevenlabs")}><HelpCircle size={16} /> Find ElevenLabs key &amp; voice ID</button><button className="secondary-button" type="button" onClick={() => setProviderGuide("azure")}><HelpCircle size={16} /> Find Azure key &amp; region</button></div></div></section>
 
-    <section className="settings-card"><div className="settings-icon"><Cloud size={21} /></div><div className="settings-content"><h2>Settings sync</h2><p>Signed-in devices share theme, layout, playback speed, translation behavior, audio provider, region and selected voices. Islands continue to sync automatically.</p><div className="settings-actions"><button className="primary-button" type="button" disabled={!user || syncing} onClick={() => void syncNow()}>{syncing ? <LoaderCircle className="spin" size={16} /> : <Cloud size={16} />} {syncing ? "Syncing…" : "Sync settings now"}</button><button className="secondary-button" type="button" onClick={copyConfig}><Copy size={16} /> Copy config</button></div><div className="security-note"><ShieldCheck size={17} /> DeepL, Azure and ElevenLabs API keys remain device-only and are excluded from Firestore and copied config. This avoids storing readable secrets in the browser-accessible database.</div>{user ? <div className="connection success"><CheckCircle2 size={17} /> Signed in as {user.email}{lastSyncedAt ? ` · Last synced ${new Date(lastSyncedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}</div> : <div className="connection error">Sign in with Google from the header to sync settings.</div>}</div></section>
+    <section className="settings-card"><div className="settings-icon"><Cloud size={21} /></div><div className="settings-content"><h2>Settings sync</h2><p>Signed-in devices share theme, layout, playback speed, translation behavior, audio provider, region and selected voices. Islands continue to sync automatically.</p><div className="settings-actions"><button className="primary-button" type="button" disabled={!user || syncing} onClick={() => void syncNow()}>{syncing ? <LoaderCircle className="spin" size={16} /> : <Cloud size={16} />} {syncing ? "Syncing…" : "Sync settings now"}</button><button className="secondary-button" type="button" onClick={copyConfig}><Copy size={16} /> Copy config</button></div><h3>API credential sync</h3><p>Credential syncing is manual. It includes the DeepL authentication key, ElevenLabs API key and Microsoft Azure Speech key.</p><div className="settings-actions"><button className="primary-button" type="button" disabled={!user || credentialSyncing !== null} onClick={() => void syncCredentials()}>{credentialSyncing === "upload" ? <LoaderCircle className="spin" size={16} /> : <ShieldCheck size={16} />} {credentialSyncing === "upload" ? "Encrypting & syncing…" : "Sync config"}</button><button className="secondary-button" type="button" disabled={!user || credentialSyncing !== null} onClick={() => void restoreCredentials()}>{credentialSyncing === "download" ? <LoaderCircle className="spin" size={16} /> : <Cloud size={16} />} {credentialSyncing === "download" ? "Restoring…" : "Restore synced config"}</button></div><div className="security-note"><ShieldCheck size={17} /> The three API keys are encrypted on the server before Firestore stores them. Copy config still excludes credentials. Configure <code>CONFIG_ENCRYPTION_KEY</code> in Vercel before using credential sync.</div>{user ? <div className="connection success"><CheckCircle2 size={17} /> Signed in as {user.email}{lastSyncedAt ? ` · Last synced ${new Date(lastSyncedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}</div> : <div className="connection error">Sign in with Google from the header to sync settings.</div>}</div></section>
 
     <section className="settings-card"><div className="settings-icon"><Activity size={21} /></div><div className="settings-content"><h2>API usage</h2><p>Local totals recorded by this browser. Provider dashboards remain the source of truth for billing and account-wide usage.</p><div className="usage-grid"><div><strong>{usage.translationRequests.toLocaleString()}</strong><span>Translation requests</span></div><div><strong>{usage.translationCharacters.toLocaleString()}</strong><span>Characters translated</span></div><div><strong>{usage.ttsRequests.toLocaleString()}</strong><span>Cloud audio requests</span></div><div><strong>{usage.ttsCharacters.toLocaleString()}</strong><span>Characters spoken</span></div><div><strong>≈{Math.ceil((usage.translationCharacters + usage.ttsCharacters) / 4).toLocaleString()}</strong><span>Estimated text tokens</span></div></div><div className="settings-actions"><button className="secondary-button danger" type="button" onClick={() => { resetUsage(); setUsage(readUsage()); toast("Local API statistics reset.", "info"); }}><RefreshCw size={15} /> Reset statistics</button></div></div></section>
 
