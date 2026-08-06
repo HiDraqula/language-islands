@@ -86,6 +86,8 @@ export function IslandWorkspace({ islandId, islandTitle, islandDescription }: { 
     if (phraseId) activatePhrase(phraseId, language);
     const result = await playText(text, language === "german" ? "de-DE" : "en-US", playbackRate);
     if (!result.ok) toast(result.message, "error");
+    setActivePhraseId(null);
+    setActiveLanguage(null);
   }
 
   function stopPlayback() { playbackRun.current += 1; stopAudio(); setIsPlayingAll(false); }
@@ -103,7 +105,7 @@ export function IslandWorkspace({ islandId, islandTitle, islandDescription }: { 
         activatePhrase(phrase.id, item.lang === "de-DE" ? "german" : "english");
         const result = await playText(item.text, item.lang, playbackRate);
         if (playbackRun.current !== run) return;
-        if (!result.ok) { setIsPlayingAll(false); toast(result.message, "error"); return; }
+        if (!result.ok) { setIsPlayingAll(false); setActivePhraseId(null); setActiveLanguage(null); toast(result.message, "error"); return; }
       }
     }
     if (playbackRun.current === run) { setIsPlayingAll(false); setPlaybackIndex(0); setActivePhraseId(null); setActiveLanguage(null); toast("Finished playing this island.", "success"); }
