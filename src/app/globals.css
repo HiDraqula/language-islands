@@ -81,6 +81,18 @@ button { cursor: pointer; }
 .brand { display: flex; align-items: center; gap: 12px; font-weight: 750; }
 .brand-mark { width: 38px; height: 38px; border-radius: 13px; display: grid; place-items: center; background: var(--green); color: white; }
 .top-actions { display: flex; align-items: center; gap: 10px; }
+.audio-quick { position: relative; }
+.audio-quick-panel { position: absolute; top: calc(100% + 12px); right: 0; width: min(430px, calc(100vw - 24px)); padding: 20px; border: 1px solid var(--line); border-radius: 20px; background: var(--card); box-shadow: 0 22px 60px rgba(25, 38, 31, .2); z-index: 40; }
+.audio-quick-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+.audio-quick-head strong { display: block; margin-top: 4px; font-size: 20px; }
+.audio-quick-panel > p { margin: 8px 0 18px; color: var(--muted); font-size: 13px; }
+.audio-quick-panel > small { display: block; margin-top: 12px; color: var(--muted); line-height: 1.45; }
+.audio-voice-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 10px; margin-top: 13px; }
+.audio-voice-row label, .audio-rate { display: grid; gap: 7px; font-size: 13px; font-weight: 700; }
+.audio-voice-row select, .audio-rate select { width: 100%; min-width: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; color: var(--ink); background: var(--paper); }
+.audio-voice-row .secondary-button { padding: 11px 12px; }
+.audio-rate { grid-template-columns: 1fr 170px; align-items: center; margin-top: 18px; }
+.audio-rate > span { display: inline-flex; align-items: center; gap: 7px; }
 
 .icon-button, .secondary-button, .primary-button {
   border: 0;

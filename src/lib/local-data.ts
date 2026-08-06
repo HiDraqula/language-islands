@@ -13,6 +13,8 @@ export const SYNCED_PREFERENCE_KEYS = [
   "island-density",
   "playback-rate",
   "audio-enabled",
+  "system-german-voice",
+  "system-english-voice",
 ] as const;
 
 export type SyncedPreferences = Partial<Record<(typeof SYNCED_PREFERENCE_KEYS)[number], string>>;

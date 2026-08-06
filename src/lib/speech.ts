@@ -1,6 +1,6 @@
 export type SpeechResult = { ok: true; voiceName?: string } | { ok: false; message: string };
 
-function loadVoices(timeoutMs = 1500): Promise<SpeechSynthesisVoice[]> {
+export function loadSystemVoices(timeoutMs = 1500): Promise<SpeechSynthesisVoice[]> {
   const synth = window.speechSynthesis;
   const existing = synth.getVoices();
   if (existing.length) return Promise.resolve(existing);
@@ -24,9 +24,11 @@ export async function speakText(text: string, lang: "de-DE" | "en-US", rate = 1)
   }
 
   const synth = window.speechSynthesis;
-  const voices = await loadVoices();
+  const voices = await loadSystemVoices();
   const languagePrefix = lang.split("-")[0];
-  const preferredVoice = voices.find((voice) => new RegExp(`^${languagePrefix}([-_]|$)`, "i").test(voice.lang));
+  const savedVoiceName = localStorage.getItem(lang === "de-DE" ? "system-german-voice" : "system-english-voice");
+  const savedVoice = savedVoiceName ? voices.find((voice) => voice.name === savedVoiceName) : undefined;
+  const preferredVoice = savedVoice ?? voices.find((voice) => new RegExp(`^${languagePrefix}([-_]|$)`, "i").test(voice.lang));
   const fallbackVoice = voices.find((voice) => /^en([-_]|$)/i.test(voice.lang)) ?? voices[0];
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = lang;
