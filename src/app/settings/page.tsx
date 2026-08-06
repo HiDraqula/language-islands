@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { Activity, ArrowLeft, CheckCircle2, ExternalLink, HelpCircle, KeyRound, LoaderCircle, Play, RefreshCw, ShieldCheck, Trash2, Volume2, X } from "lucide-react";
+import { Activity, ArrowLeft, CheckCircle2, Cloud, Copy, ExternalLink, HelpCircle, KeyRound, LoaderCircle, Play, RefreshCw, ShieldCheck, Trash2, Volume2, X } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 import { Header } from "@/components/header";
+import { useAuth } from "@/components/auth-provider";
 import { useToast } from "@/components/ui-feedback";
 import { playText, AudioEngine } from "@/lib/audio";
 import { readUsage, recordUsage, resetUsage, UsageStats } from "@/lib/usage";
-import { removeIslandData, saveIslands } from "@/lib/local-data";
+import { PREFERENCES_APPLIED, readSyncedPreferences, removeIslandData, saveIslands, savePreference } from "@/lib/local-data";
 
 type Island = { id: string; title: string; description?: string };
 type ProviderGuide = "elevenlabs" | "azure";
@@ -40,9 +41,17 @@ export default function SettingsPage() {
   const [deleteTarget, setDeleteTarget] = useState<Island | null>(null);
   const [providerGuide, setProviderGuide] = useState<ProviderGuide | null>(null);
   const [usage, setUsage] = useState<UsageStats>(() => readUsage());
+  const { user, syncing, lastSyncedAt, syncNow } = useAuth();
   const toast = useToast();
 
   useEffect(() => {
+    const refreshPreferences = () => {
+      setEngine((localStorage.getItem("tts-engine") || "system") as AudioEngine);
+      setVoiceId(localStorage.getItem("elevenlabs-german-voice") || "21m00Tcm4TlvDq8ikWAM");
+      setAzureRegion(localStorage.getItem("azure-speech-region") || "westeurope");
+      setAzureGermanVoice(localStorage.getItem("azure-german-voice") || "de-DE-KatjaNeural");
+      setAzureEnglishVoice(localStorage.getItem("azure-english-voice") || "en-US-JennyNeural");
+    };
     const dk = sessionStorage.getItem("deepl-api-key");
     const ek = sessionStorage.getItem("elevenlabs-api-key");
     const ak = sessionStorage.getItem("azure-speech-api-key");
@@ -50,13 +59,11 @@ export default function SettingsPage() {
       if (dk) { setDeeplKey(dk); setDeeplStatus("connected"); }
       if (ek) { setElevenKey(ek); setElevenStatus("connected"); }
       if (ak) { setAzureKey(ak); setAzureStatus("connected"); }
-      setEngine((localStorage.getItem("tts-engine") || "system") as AudioEngine);
-      setVoiceId(localStorage.getItem("elevenlabs-german-voice") || "21m00Tcm4TlvDq8ikWAM");
-      setAzureRegion(localStorage.getItem("azure-speech-region") || "westeurope");
-      setAzureGermanVoice(localStorage.getItem("azure-german-voice") || "de-DE-KatjaNeural");
-      setAzureEnglishVoice(localStorage.getItem("azure-english-voice") || "en-US-JennyNeural");
+      refreshPreferences();
       try { setIslands(JSON.parse(localStorage.getItem("language-islands") || "[]")); } catch { /* no saved islands */ }
     });
+    window.addEventListener(PREFERENCES_APPLIED, refreshPreferences);
+    return () => window.removeEventListener(PREFERENCES_APPLIED, refreshPreferences);
   }, []);
 
   useEffect(() => {
@@ -82,8 +89,8 @@ export default function SettingsPage() {
     if (!elevenKey.trim() || !voiceId.trim()) return;
     setElevenStatus("testing");
     sessionStorage.setItem("elevenlabs-api-key", elevenKey.trim());
-    localStorage.setItem("elevenlabs-german-voice", voiceId.trim());
-    localStorage.setItem("tts-engine", "elevenlabs"); setEngine("elevenlabs");
+    savePreference("elevenlabs-german-voice", voiceId.trim());
+    savePreference("tts-engine", "elevenlabs"); setEngine("elevenlabs");
     const result = await playText("Guten Tag. Die Aussprache ist bereit.", "de-DE");
     if (result.ok) { setElevenStatus("connected"); toast("ElevenLabs audio is connected.", "success"); }
     else { sessionStorage.removeItem("elevenlabs-api-key"); setElevenStatus("invalid"); toast(result.message, "error"); }
@@ -94,10 +101,10 @@ export default function SettingsPage() {
     if (!azureKey.trim() || !azureRegion.trim() || !azureGermanVoice.trim()) return;
     setAzureStatus("testing");
     sessionStorage.setItem("azure-speech-api-key", azureKey.trim());
-    localStorage.setItem("azure-speech-region", azureRegion.trim().toLowerCase());
-    localStorage.setItem("azure-german-voice", azureGermanVoice.trim());
-    localStorage.setItem("azure-english-voice", azureEnglishVoice.trim());
-    localStorage.setItem("tts-engine", "azure"); setEngine("azure");
+    savePreference("azure-speech-region", azureRegion.trim().toLowerCase());
+    savePreference("azure-german-voice", azureGermanVoice.trim());
+    savePreference("azure-english-voice", azureEnglishVoice.trim());
+    savePreference("tts-engine", "azure"); setEngine("azure");
     const result = await playText("Guten Tag. Azure Speech ist bereit.", "de-DE");
     if (result.ok) { setAzureStatus("connected"); toast("Azure Speech audio is connected.", "success"); }
     else { sessionStorage.removeItem("azure-speech-api-key"); setAzureStatus("invalid"); toast(result.message, "error"); }
@@ -127,9 +134,9 @@ export default function SettingsPage() {
   async function previewAzureVoice(voice: string, lang: "de-DE" | "en-US") {
     if (!azureKey.trim() || !azureRegion.trim()) return toast("Enter your Azure Speech key and region first.", "error");
     sessionStorage.setItem("azure-speech-api-key", azureKey.trim());
-    localStorage.setItem("azure-speech-region", azureRegion.trim().toLowerCase());
-    localStorage.setItem(lang === "de-DE" ? "azure-german-voice" : "azure-english-voice", voice);
-    localStorage.setItem("tts-engine", "azure");
+    savePreference("azure-speech-region", azureRegion.trim().toLowerCase());
+    savePreference(lang === "de-DE" ? "azure-german-voice" : "azure-english-voice", voice);
+    savePreference("tts-engine", "azure");
     setEngine("azure");
     setPreviewingVoice(voice);
     const result = await playText(lang === "de-DE" ? "Hallo! So klingt diese deutsche Stimme." : "Hello! This is how this English voice sounds.", lang);
@@ -141,11 +148,17 @@ export default function SettingsPage() {
   const englishVoices = azureVoices.filter((voice) => voice.Locale.toLowerCase().startsWith("en-"));
   const voiceLabel = (voice: AzureVoice) => `${voice.LocalName || voice.DisplayName} · ${voice.Locale} · ${voice.Gender}`;
 
-  function chooseEngine(value: AudioEngine) { setEngine(value); localStorage.setItem("tts-engine", value); toast(value === "system" ? "Using the device system voice." : `Using ${value === "azure" ? "Azure Speech" : "ElevenLabs"} cloud audio.`, "info"); }
+  function chooseEngine(value: AudioEngine) { setEngine(value); savePreference("tts-engine", value); toast(value === "system" ? "Using the device system voice." : `Using ${value === "azure" ? "Azure Speech" : "ElevenLabs"} cloud audio.`, "info"); }
   function removeDeepL() { sessionStorage.removeItem("deepl-api-key"); setDeeplKey(""); setDeeplStatus("idle"); toast("DeepL key removed.", "info"); }
   function removeEleven() { sessionStorage.removeItem("elevenlabs-api-key"); setElevenKey(""); setElevenStatus("idle"); if (engine === "elevenlabs") chooseEngine("system"); toast("ElevenLabs key removed.", "info"); }
   function removeAzure() { sessionStorage.removeItem("azure-speech-api-key"); setAzureKey(""); setAzureStatus("idle"); if (engine === "azure") chooseEngine("system"); toast("Azure Speech key removed.", "info"); }
   function deleteIsland(island: Island) { const next = islands.filter((item) => item.id !== island.id); saveIslands(next); removeIslandData(island.id); setIslands(next); setDeleteTarget(null); toast(`Deleted ${island.title}.`, "success"); }
+
+  async function copyConfig() {
+    const config = { version: 1, preferences: readSyncedPreferences(), note: "API credentials are intentionally excluded." };
+    try { await navigator.clipboard.writeText(JSON.stringify(config, null, 2)); toast("Settings copied without API credentials.", "success"); }
+    catch { toast("The browser could not copy the settings.", "error"); }
+  }
 
   return <main className="shell"><Header /><div className="page settings-page">
     <div className="workspace-head"><Link href="/" className="back" aria-label="Back"><ArrowLeft size={20} /></Link><div><h1 className="display">Settings</h1><p>Translation, pronunciation and data preferences</p></div></div>
@@ -154,6 +167,8 @@ export default function SettingsPage() {
     <section className="settings-card"><div className="settings-icon"><Volume2 size={21} /></div><div className="settings-content"><h2>Text-to-speech</h2><p>Use a voice installed on your device, ElevenLabs, or Microsoft Azure Speech.</p><div className="engine-options"><label><input type="radio" name="tts-engine" checked={engine === "system"} onChange={() => chooseEngine("system")} /><span><strong>System voice</strong><small>Free, fast and works offline when a matching voice is installed.</small></span></label><label><input type="radio" name="tts-engine" checked={engine === "elevenlabs"} onChange={() => chooseEngine("elevenlabs")} /><span><strong>ElevenLabs</strong><small>Cloud-generated multilingual audio using your own API allowance.</small></span></label><label><input type="radio" name="tts-engine" checked={engine === "azure"} onChange={() => chooseEngine("azure")} /><span><strong>Microsoft Azure Speech</strong><small>Reliable neural speech using your Azure Speech key and region.</small></span></label></div><form onSubmit={testElevenLabs} className="nested-settings"><h3>ElevenLabs</h3><label>ElevenLabs API key<input type="password" autoComplete="off" value={elevenKey} onChange={(e) => { setElevenKey(e.target.value); setElevenStatus("idle"); }} placeholder="Enter your ElevenLabs API key" /></label><label>German voice ID<input value={voiceId} onChange={(e) => setVoiceId(e.target.value)} placeholder="ElevenLabs voice ID" /></label><div className="settings-actions"><button className="primary-button" disabled={!elevenKey.trim() || !voiceId.trim() || elevenStatus === "testing"} type="submit">{elevenStatus === "testing" ? "Generating test…" : "Test & save ElevenLabs"}</button>{elevenKey && <button className="secondary-button danger" type="button" onClick={removeEleven}><Trash2 size={16} /> Remove</button>}</div>{elevenStatus === "connected" && <div className="connection success"><CheckCircle2 size={17} /> ElevenLabs is ready</div>}</form><form onSubmit={testAzure} className="nested-settings"><h3>Microsoft Azure Speech</h3><label>Speech resource key<input type="password" autoComplete="off" value={azureKey} onChange={(e) => { setAzureKey(e.target.value); setAzureStatus("idle"); setAzureVoices([]); }} placeholder="Enter Azure Speech key 1 or key 2" /></label><label>Azure region<input value={azureRegion} onChange={(e) => { setAzureRegion(e.target.value); setAzureVoices([]); }} placeholder="For example: westeurope" /></label><div className="voice-catalogue-head"><div><strong>Azure voice catalogue</strong><small>Load the voices available to your Azure region, then preview and choose one for each language.</small></div><button className="secondary-button" type="button" onClick={loadAzureVoices} disabled={voicesLoading || !azureKey.trim() || !azureRegion.trim()}>{voicesLoading ? <LoaderCircle className="spin" size={16} /> : <RefreshCw size={16} />} {voicesLoading ? "Loading…" : azureVoices.length ? "Reload voices" : "Load voices"}</button></div><div className="voice-picker-grid"><label>German voice<select value={azureGermanVoice} onChange={(e) => setAzureGermanVoice(e.target.value)}>{!germanVoices.some((voice) => voice.ShortName === azureGermanVoice) && <option value={azureGermanVoice}>{azureGermanVoice}</option>}{germanVoices.map((voice) => <option key={voice.ShortName} value={voice.ShortName}>{voiceLabel(voice)}</option>)}</select></label><button className="secondary-button voice-preview" type="button" onClick={() => previewAzureVoice(azureGermanVoice, "de-DE")} disabled={!azureGermanVoice || previewingVoice !== null}>{previewingVoice === azureGermanVoice ? <LoaderCircle className="spin" size={16} /> : <Play size={16} />} Preview German</button><label>English voice<select value={azureEnglishVoice} onChange={(e) => setAzureEnglishVoice(e.target.value)}>{!englishVoices.some((voice) => voice.ShortName === azureEnglishVoice) && <option value={azureEnglishVoice}>{azureEnglishVoice}</option>}{englishVoices.map((voice) => <option key={voice.ShortName} value={voice.ShortName}>{voiceLabel(voice)}</option>)}</select></label><button className="secondary-button voice-preview" type="button" onClick={() => previewAzureVoice(azureEnglishVoice, "en-US")} disabled={!azureEnglishVoice || previewingVoice !== null}>{previewingVoice === azureEnglishVoice ? <LoaderCircle className="spin" size={16} /> : <Play size={16} />} Preview English</button></div>{azureVoices.length > 0 && <p className="voice-count">{germanVoices.length} German voices and {englishVoices.length} English voices available in {azureRegion}.</p>}<div className="settings-actions"><button className="primary-button" disabled={!azureKey.trim() || !azureRegion.trim() || !azureGermanVoice.trim() || azureStatus === "testing"} type="submit">{azureStatus === "testing" ? "Generating test…" : "Test & save Azure"}</button>{azureKey && <button className="secondary-button danger" type="button" onClick={removeAzure}><Trash2 size={16} /> Remove</button>}</div>{azureStatus === "connected" && <div className="connection success"><CheckCircle2 size={17} /> Azure Speech is ready</div>}{azureStatus === "invalid" && <div className="connection error">Azure could not connect. Check the resource key, region and voice.</div>}</form></div></section>
 
     <section className="settings-card"><div className="settings-icon"><HelpCircle size={21} /></div><div className="settings-content"><h2>Audio setup guides</h2><p>Open the guide for your selected audio method. System voice help automatically detects Windows, macOS, or Linux.</p><div className="settings-actions"><button className="secondary-button" type="button" onClick={() => window.dispatchEvent(new Event("language-islands:audio-help"))}><Volume2 size={16} /> Set up system voice</button><button className="secondary-button" type="button" onClick={() => setProviderGuide("elevenlabs")}><HelpCircle size={16} /> Find ElevenLabs key &amp; voice ID</button><button className="secondary-button" type="button" onClick={() => setProviderGuide("azure")}><HelpCircle size={16} /> Find Azure key &amp; region</button></div></div></section>
+
+    <section className="settings-card"><div className="settings-icon"><Cloud size={21} /></div><div className="settings-content"><h2>Settings sync</h2><p>Signed-in devices share theme, layout, playback speed, translation behavior, audio provider, region and selected voices. Islands continue to sync automatically.</p><div className="settings-actions"><button className="primary-button" type="button" disabled={!user || syncing} onClick={() => void syncNow()}>{syncing ? <LoaderCircle className="spin" size={16} /> : <Cloud size={16} />} {syncing ? "Syncing…" : "Sync settings now"}</button><button className="secondary-button" type="button" onClick={copyConfig}><Copy size={16} /> Copy config</button></div><div className="security-note"><ShieldCheck size={17} /> DeepL, Azure and ElevenLabs API keys remain device-only and are excluded from Firestore and copied config. This avoids storing readable secrets in the browser-accessible database.</div>{user ? <div className="connection success"><CheckCircle2 size={17} /> Signed in as {user.email}{lastSyncedAt ? ` · Last synced ${new Date(lastSyncedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}</div> : <div className="connection error">Sign in with Google from the header to sync settings.</div>}</div></section>
 
     <section className="settings-card"><div className="settings-icon"><Activity size={21} /></div><div className="settings-content"><h2>API usage</h2><p>Local totals recorded by this browser. Provider dashboards remain the source of truth for billing and account-wide usage.</p><div className="usage-grid"><div><strong>{usage.translationRequests.toLocaleString()}</strong><span>Translation requests</span></div><div><strong>{usage.translationCharacters.toLocaleString()}</strong><span>Characters translated</span></div><div><strong>{usage.ttsRequests.toLocaleString()}</strong><span>Cloud audio requests</span></div><div><strong>{usage.ttsCharacters.toLocaleString()}</strong><span>Characters spoken</span></div><div><strong>≈{Math.ceil((usage.translationCharacters + usage.ttsCharacters) / 4).toLocaleString()}</strong><span>Estimated text tokens</span></div></div><div className="settings-actions"><button className="secondary-button danger" type="button" onClick={() => { resetUsage(); setUsage(readUsage()); toast("Local API statistics reset.", "info"); }}><RefreshCw size={15} /> Reset statistics</button></div></div></section>
 

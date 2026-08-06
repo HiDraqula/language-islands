@@ -3,6 +3,7 @@
 import { createContext, ReactNode, useCallback, useContext, useEffect, useState } from "react";
 import { CheckCircle2, ExternalLink, Volume2, X } from "lucide-react";
 import { playText } from "@/lib/audio";
+import { savePreference } from "@/lib/local-data";
 import { useRouter } from "next/navigation";
 
 type ToastKind = "success" | "error" | "info";
@@ -43,11 +44,11 @@ export function UiFeedback({ children }: { children: ReactNode }) {
   async function enableAudio() {
     const result = await playText("Audio ist aktiviert.", "de-DE");
     if (result.ok) {
-      localStorage.setItem("audio-enabled", "true");
+      savePreference("audio-enabled", "true");
       toast(result.voiceName ? `Audio is ready · ${result.voiceName}` : "Audio is ready.", "success");
       dismissAudio();
     } else {
-      localStorage.removeItem("audio-enabled");
+      savePreference("audio-enabled", null);
       toast(result.message, "error");
       if ((localStorage.getItem("tts-engine") || "system") === "system") setGuideOpen(true);
     }

@@ -60,4 +60,3 @@ export async function speakText(text: string, lang: "de-DE" | "en-US", rate = 1)
 export function speakGerman(text: string) {
   return speakText(text, "de-DE");
 }
-95fddb4a7dc35a5c02ea767f61d0363164b05e7e
