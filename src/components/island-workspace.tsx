@@ -77,7 +77,7 @@ export function IslandWorkspace({ islandId, islandTitle, islandDescription }: { 
       const bounds = row.getBoundingClientRect();
       const isOutsideView = bounds.top < 90 || bounds.bottom > window.innerHeight - 110;
       if (isOutsideView) row.scrollIntoView({ behavior: "smooth", block: "center" });
-    }, 1500);
+    }, 250);
   }
 
   async function speak(text: string, phraseId?: string, language: "english" | "german" = "german") {
