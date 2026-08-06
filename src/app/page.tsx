@@ -157,15 +157,21 @@ export default function Home() {
           {islands.map(({ id, title: islandTitle, description: islandDescription, count, icon, tint, accent }) => {
             const Icon = icons[icon] ?? Sparkles;
             return (
-              <article className="island-card" key={id} style={{ "--tint": tint, "--accent": accent } as React.CSSProperties}>
+              <Link
+                className="island-card"
+                href={`/islands/${id}?title=${encodeURIComponent(islandTitle)}&description=${encodeURIComponent(islandDescription)}`}
+                key={id}
+                style={{ "--tint": tint, "--accent": accent } as React.CSSProperties}
+                aria-label={`Open ${islandTitle}`}
+              >
                 <div className="island-icon"><Icon size={22} /></div>
                 <h3 className="display">{islandTitle}</h3>
                 <p>{islandDescription}</p>
                 <div className="card-footer">
                   <span>{count} phrases · English → German</span>
-                  <Link className="open-pill" href={`/islands/${id}?title=${encodeURIComponent(islandTitle)}&description=${encodeURIComponent(islandDescription)}`} aria-label={`Open ${islandTitle}`}><ArrowUpRight size={17} /></Link>
+                  <span className="open-pill" aria-hidden="true"><ArrowUpRight size={17} /></span>
                 </div>
-              </article>
+              </Link>
             );
           })}
         </section>
